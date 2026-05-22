@@ -1,0 +1,34 @@
+name: Rebuild dashboard data
+
+on:
+  push:
+    paths:
+      - 'data/**.csv'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run build script
+        run: node build.js
+
+      - name: Commit and push updated data.js
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/data.js
+          git diff --cached --quiet || git commit -m "chore: rebuild data.js from updated CSVs [skip ci]"
+          git push
