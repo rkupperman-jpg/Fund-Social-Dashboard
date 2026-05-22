@@ -20,32 +20,56 @@ const fs   = require('fs');
 const path = require('path');
 
 // ── SHARED: CSV PARSER ───────────────────────────────────────────────────────
+// Handles quoted fields containing embedded newlines and commas correctly.
+// Sprout Social Post Performance exports frequently include newlines inside
+// the Post text column, which breaks naive line-split parsers.
 function parseCSV(filepath) {
   const raw = fs.readFileSync(filepath, 'utf8');
-  const lines = raw.split(/\r?\n/).filter(l => l.trim());
 
-  function parseLine(line) {
-    const fields = [];
-    let cur = '', inQuote = false;
-    for (let i = 0; i < line.length; i++) {
-      const ch = line[i];
-      if (ch === '"') {
-        if (inQuote && line[i+1] === '"') { cur += '"'; i++; }
-        else inQuote = !inQuote;
-      } else if (ch === ',' && !inQuote) {
-        fields.push(cur); cur = '';
-      } else {
-        cur += ch;
+  function tokenise(src) {
+    const records = [];
+    let fields = [];
+    let cur = '';
+    let inQuote = false;
+    let i = 0;
+
+    while (i < src.length) {
+      const ch = src[i];
+
+      if (inQuote) {
+        if (ch === '"') {
+          if (src[i + 1] === '"') { cur += '"'; i += 2; continue; } // escaped quote
+          inQuote = false; i++; continue; // closing quote
+        }
+        cur += ch; i++; continue; // any char including \n is part of the field
       }
+
+      if (ch === '"')  { inQuote = true; i++; continue; }
+      if (ch === ',')  { fields.push(cur); cur = ''; i++; continue; }
+      if (ch === '\r') { i++; continue; }
+      if (ch === '\n') {
+        fields.push(cur); cur = '';
+        records.push(fields);
+        fields = [];
+        i++; continue;
+      }
+      cur += ch; i++;
     }
-    fields.push(cur);
-    return fields;
+    // flush trailing content
+    if (cur || fields.length) {
+      fields.push(cur);
+      if (fields.some(f => f !== '')) records.push(fields);
+    }
+    return records;
   }
 
-  const headers = parseLine(lines[0]);
+  const records = tokenise(raw);
+  if (records.length < 2) return [];
+
+  const headers = records[0].map(h => h.trim());
   const rows = [];
-  for (let i = 1; i < lines.length; i++) {
-    const vals = parseLine(lines[i]);
+  for (let i = 1; i < records.length; i++) {
+    const vals = records[i];
     if (vals.length < 3) continue;
     const row = {};
     headers.forEach((h, idx) => { row[h] = (vals[idx] || '').trim(); });
@@ -62,11 +86,10 @@ function num(str) {
   return isNaN(n) ? null : n;
 }
 
-// ── SHARED: DATE FORMATTER ───────────────────────────────────────────────────
+// ── SHARED: DATE FORMATTERS ──────────────────────────────────────────────────
 function fmtISO(d) {
   return d.toISOString().slice(0, 10);
 }
-
 function fmtHuman(d) {
   return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 }
@@ -105,14 +128,9 @@ function buildOrgData(allRows) {
   const daily = {};
 
   for (const row of allRows) {
-    // Date format: MM-DD-YYYY
     const parts = row['Date'].split('-');
     if (parts.length !== 3) continue;
-    const dateObj = new Date(
-      parseInt(parts[2]),
-      parseInt(parts[0]) - 1,
-      parseInt(parts[1])
-    );
+    const dateObj = new Date(parseInt(parts[2]), parseInt(parts[0]) - 1, parseInt(parts[1]));
     if (isNaN(dateObj.getTime())) continue;
 
     const plt = platformKey(row['Network']);
@@ -120,11 +138,10 @@ function buildOrgData(allRows) {
 
     const dateKey = row['Date'];
     if (!daily[dateKey]) daily[dateKey] = {};
-
     daily[dateKey][plt] = {
       dateObj,
-      imp:  num(row['Impressions'])                          ?? 0,
-      eng:  num(row['Engagements'])                          ?? 0,
+      imp:  num(row['Impressions'])                         ?? 0,
+      eng:  num(row['Engagements'])                         ?? 0,
       rate: num(row['Engagement Rate (per Impression)']),
       aud:  num(row['Audience']),
     };
@@ -136,14 +153,11 @@ function buildOrgData(allRows) {
   function initMetrics() {
     return { imp: 0, eng: 0, rateNumer: 0, rateDenom: 0, audSamples: [] };
   }
-
   function addDay(slot, imp, eng, rate, aud) {
-    slot.imp += imp;
-    slot.eng += eng;
+    slot.imp += imp; slot.eng += eng;
     if (rate !== null) {
       const w = imp > 0 ? imp : 1;
-      slot.rateNumer += rate * w;
-      slot.rateDenom += w;
+      slot.rateNumer += rate * w; slot.rateDenom += w;
     }
     if (aud !== null) slot.audSamples.push(aud);
   }
@@ -159,13 +173,12 @@ function buildOrgData(allRows) {
     const sampleDate = Object.values(dayData)[0]?.dateObj;
     if (!sampleDate) continue;
 
-    const yr = sampleDate.getFullYear();
-    const mo = sampleDate.getMonth();
+    const yr = sampleDate.getFullYear(), mo = sampleDate.getMonth();
     const q  = Math.floor(mo / 3) + 1;
     const { wy, wn } = isoWeek(sampleDate);
     const wKey = `${wy}-${wn}`;
-    const ws   = weekStart(sampleDate);
-    const syr  = String(yr), smo = String(mo), sq = String(q);
+    const ws = weekStart(sampleDate);
+    const syr = String(yr), smo = String(mo), sq = String(q);
 
     if (!monthly[syr])       monthly[syr] = {};
     if (!monthly[syr][smo])  monthly[syr][smo] = {};
@@ -185,7 +198,6 @@ function buildOrgData(allRows) {
     }
 
     const allDay = { imp: 0, eng: 0, rates: [], auds: [] };
-
     for (const plt of PLTS) {
       const d = dayData[plt];
       if (!d) continue;
@@ -194,37 +206,36 @@ function buildOrgData(allRows) {
       addDay(quarterly[syr][sq][plt], imp, eng, rate, aud);
       addDay(annual[syr][plt], imp, eng, rate, aud);
       addDay(weeklyMap[wKey][plt], imp, eng, rate, aud);
-      allDay.imp += imp;
-      allDay.eng += eng;
+      allDay.imp += imp; allDay.eng += eng;
       if (rate !== null) allDay.rates.push({ r: rate, w: imp > 0 ? imp : 1 });
       if (aud  !== null) allDay.auds.push(aud);
     }
 
-    const allRateNumer = allDay.rates.reduce((s, x) => s + x.r * x.w, 0);
-    const allRateDenom = allDay.rates.reduce((s, x) => s + x.w, 0);
+    const allRN = allDay.rates.reduce((s, x) => s + x.r * x.w, 0);
+    const allRD = allDay.rates.reduce((s, x) => s + x.w, 0);
 
     monthly[syr][smo]['all'].imp        += allDay.imp;
     monthly[syr][smo]['all'].eng        += allDay.eng;
-    monthly[syr][smo]['all'].rateNumer  += allRateNumer;
-    monthly[syr][smo]['all'].rateDenom  += allRateDenom;
+    monthly[syr][smo]['all'].rateNumer  += allRN;
+    monthly[syr][smo]['all'].rateDenom  += allRD;
     allDay.auds.forEach(a => monthly[syr][smo]['all'].audSamples.push(a));
 
     quarterly[syr][sq]['all'].imp       += allDay.imp;
     quarterly[syr][sq]['all'].eng       += allDay.eng;
-    quarterly[syr][sq]['all'].rateNumer += allRateNumer;
-    quarterly[syr][sq]['all'].rateDenom += allRateDenom;
+    quarterly[syr][sq]['all'].rateNumer += allRN;
+    quarterly[syr][sq]['all'].rateDenom += allRD;
     allDay.auds.forEach(a => quarterly[syr][sq]['all'].audSamples.push(a));
 
     annual[syr]['all'].imp              += allDay.imp;
     annual[syr]['all'].eng              += allDay.eng;
-    annual[syr]['all'].rateNumer        += allRateNumer;
-    annual[syr]['all'].rateDenom        += allRateDenom;
+    annual[syr]['all'].rateNumer        += allRN;
+    annual[syr]['all'].rateDenom        += allRD;
     allDay.auds.forEach(a => annual[syr]['all'].audSamples.push(a));
 
     weeklyMap[wKey]['all'].imp          += allDay.imp;
     weeklyMap[wKey]['all'].eng          += allDay.eng;
-    weeklyMap[wKey]['all'].rateNumer    += allRateNumer;
-    weeklyMap[wKey]['all'].rateDenom    += allRateDenom;
+    weeklyMap[wKey]['all'].rateNumer    += allRN;
+    weeklyMap[wKey]['all'].rateDenom    += allRD;
     allDay.auds.forEach(a => weeklyMap[wKey]['all'].audSamples.push(a));
 
     weeklyMap[wKey].endDate = sampleDate;
@@ -233,8 +244,7 @@ function buildOrgData(allRows) {
   function finalize(slot) {
     const rate = slot.rateDenom > 0 ? +(slot.rateNumer / slot.rateDenom).toFixed(2) : null;
     const aud  = slot.audSamples.length > 0
-      ? Math.round(slot.audSamples[slot.audSamples.length - 1])
-      : null;
+      ? Math.round(slot.audSamples[slot.audSamples.length - 1]) : null;
     return { imp: slot.imp, eng: slot.eng, rate, aud };
   }
 
@@ -281,8 +291,7 @@ function buildOrgData(allRows) {
   let lastDateFormatted = '';
   if (lastDate) {
     const [mm, dd, yyyy] = lastDate.split('-');
-    const d = new Date(parseInt(yyyy), parseInt(mm)-1, parseInt(dd));
-    lastDateFormatted = fmtHuman(d);
+    lastDateFormatted = fmtHuman(new Date(parseInt(yyyy), parseInt(mm)-1, parseInt(dd)));
   }
 
   return {
@@ -297,32 +306,23 @@ function buildOrgData(allRows) {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function buildInfluencerData(allRows) {
-  // Post Performance CSVs use MM/DD/YYYY H:MM am/pm date format
-  // and are post-level (one row per post), not daily aggregates.
-  // We only process Post Performance exports (they have a 'Post ID' column).
-
   const postRows = allRows.filter(r => r['Post ID'] && r['Post ID'].trim());
   if (postRows.length === 0) return null;
 
   const posts = [];
-
   for (const row of postRows) {
-    // Parse date: "1/24/2024 1:19 pm" or "1/24/2024 1:19 PM"
-    let dateObj = null;
     const rawDate = row['Date'];
+    let dateObj = null;
     if (rawDate) {
-      // Try M/D/YYYY H:MM am/pm
       const m = rawDate.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-      if (m) {
-        dateObj = new Date(parseInt(m[3]), parseInt(m[1])-1, parseInt(m[2]));
-      }
+      if (m) dateObj = new Date(parseInt(m[3]), parseInt(m[1])-1, parseInt(m[2]));
     }
     if (!dateObj || isNaN(dateObj.getTime())) continue;
 
     posts.push({
       date:        fmtISO(dateObj),
       year:        dateObj.getFullYear(),
-      month:       dateObj.getMonth(),   // 0-based
+      month:       dateObj.getMonth(),
       network:     row['Network']      || '',
       profile:     row['Profile']      || '',
       post:        row['Post']         || '',
@@ -341,15 +341,13 @@ function buildInfluencerData(allRows) {
 
   if (posts.length === 0) return null;
 
-  // Sort chronologically
   posts.sort((a, b) => a.date.localeCompare(b.date));
 
-  // Deduplicate by link (later file wins — same merge strategy as org data)
+  // Deduplicate by link — later file wins
   const seen = new Map();
-  for (const p of posts) seen.set(p.link || p.date + p.post.slice(0,20), p);
+  for (const p of posts) seen.set(p.link || p.date + p.post.slice(0, 20), p);
   const dedupedPosts = Array.from(seen.values()).sort((a, b) => a.date.localeCompare(b.date));
 
-  // ── Monthly aggregates ──────────────────────────────────────────────────────
   const monthlyMap = {};
   for (const p of dedupedPosts) {
     const key = `${p.year}-${p.month}`;
@@ -361,7 +359,6 @@ function buildInfluencerData(allRows) {
     monthlyMap[key].imp       += p.imp       || 0;
   }
 
-  // ── Annual aggregates ───────────────────────────────────────────────────────
   const annualMap = {};
   for (const p of dedupedPosts) {
     const yr = String(p.year);
@@ -374,11 +371,7 @@ function buildInfluencerData(allRows) {
     annualMap[yr].shares    += p.shares    || 0;
   }
 
-  // ── Identify unique influencers ─────────────────────────────────────────────
   const profiles = [...new Set(dedupedPosts.map(p => p.profile))].filter(Boolean);
-
-  const firstDate = dedupedPosts[0].date;
-  const lastDate  = dedupedPosts[dedupedPosts.length - 1].date;
 
   return {
     posts:   dedupedPosts,
@@ -386,11 +379,10 @@ function buildInfluencerData(allRows) {
     annual:  annualMap,
     meta: {
       builtAt:    new Date().toISOString(),
-      firstDate,
-      lastDate,
+      firstDate:  dedupedPosts[0].date,
+      lastDate:   dedupedPosts[dedupedPosts.length - 1].date,
       totalPosts: dedupedPosts.length,
-      // Use first profile name found, or join multiple
-      name: profiles.length === 1 ? profiles[0] : profiles.join(', '),
+      name:       profiles.length === 1 ? profiles[0] : profiles.join(', '),
       profiles,
     }
   };
@@ -400,10 +392,10 @@ function buildInfluencerData(allRows) {
 // ── MAIN ────────────────────────────────────────────────────────────────────
 // ═══════════════════════════════════════════════════════════════════════════════
 
-const dataDir        = path.join(__dirname, 'data');
-const influencerDir  = path.join(__dirname, 'data', 'influencers');
-const orgOutFile     = path.join(__dirname, 'docs', 'data.js');
-const infOutFile     = path.join(__dirname, 'docs', 'influencer_data.js');
+const dataDir       = path.join(__dirname, 'data');
+const influencerDir = path.join(__dirname, 'data', 'influencers');
+const orgOutFile    = path.join(__dirname, 'docs', 'data.js');
+const infOutFile    = path.join(__dirname, 'docs', 'influencer_data.js');
 
 // ── Build org data ────────────────────────────────────────────────────────────
 const orgFiles = fs.readdirSync(dataDir)
@@ -422,7 +414,6 @@ for (const f of orgFiles) {
   console.log(`  ${f}  (${rows.length} rows)`);
   orgRows = orgRows.concat(rows);
 }
-
 console.log(`Total org rows: ${orgRows.length}`);
 const orgData = buildOrgData(orgRows);
 console.log(`Years: ${Object.keys(orgData.annual).sort().join(', ')}`);
@@ -452,7 +443,6 @@ if (fs.existsSync(influencerDir)) {
     }
 
     const infData = buildInfluencerData(infRows);
-
     if (infData) {
       console.log(`Posts: ${infData.meta.totalPosts}`);
       console.log(`Profiles: ${infData.meta.profiles.join(', ')}`);
@@ -469,10 +459,10 @@ window.INFLUENCER_DATA = ${JSON.stringify(infData)};
       console.log('  No Post Performance rows found — skipping influencer_data.js');
     }
   } else {
-    console.log('\n── No influencer CSVs found in ./data/influencers/ — skipping ──');
+    console.log('\n── No influencer CSVs in ./data/influencers/ — skipping ──');
   }
 } else {
-  console.log('\n── No ./data/influencers/ folder found — skipping influencer data ──');
+  console.log('\n── No ./data/influencers/ folder — skipping influencer data ──');
 }
 
 console.log('\nBuild complete.');
