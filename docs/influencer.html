@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Heather Y. Anichini | Influencer Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="influencer_data.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --maroon:#7E162D;--gold:#DAC99B;--gold-light:#f5edd8;
+  --dark:#404041;--mid:#6b6b6c;--light:#f7f5f2;
+  --white:#ffffff;--border:rgba(64,64,65,0.13);
+  --radius:10px;--shadow:0 1px 4px rgba(0,0,0,0.07),0 1px 2px rgba(0,0,0,0.04);
+  --li-blue:#0A66C2;
+}
+body{font-family:Calibri,"Segoe UI",Arial,sans-serif;background:var(--light);color:var(--dark);font-size:15px;line-height:1.5}
+
+/* ── HEADER ── */
+header{background:var(--maroon);color:var(--white);padding:1.4rem 2rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem}
+header h1{font-family:Georgia,serif;font-size:22px;font-weight:normal}
+header p{font-size:13px;opacity:.75;margin-top:2px}
+.hbadge{background:rgba(255,255,255,.15);padding:5px 14px;border-radius:20px;font-size:13px;white-space:nowrap}
+.nav-back{display:inline-flex;align-items:center;gap:6px;color:rgba(255,255,255,.75);font-size:13px;text-decoration:none;transition:color .15s}
+.nav-back:hover{color:#fff}
+.nav-back svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* ── LAYOUT ── */
+main{max-width:1160px;margin:0 auto;padding:1.75rem 2rem 3rem;display:flex;flex-direction:column;gap:1.5rem}
+.panel{background:var(--white);border-radius:var(--radius);border:1px solid var(--border);padding:1.25rem 1.5rem;box-shadow:var(--shadow)}
+
+/* ── PROFILE HERO ── */
+.hero{display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap}
+.hero-avatar{width:64px;height:64px;border-radius:50%;background:var(--maroon);display:flex;align-items:center;justify-content:center;font-family:Georgia,serif;font-size:24px;color:white;flex-shrink:0;letter-spacing:-1px}
+.hero-info h2{font-family:Georgia,serif;font-size:20px;font-weight:normal;color:var(--dark)}
+.hero-info p{font-size:13px;color:var(--mid);margin-top:2px}
+.hero-meta{display:flex;gap:1rem;margin-top:.5rem;flex-wrap:wrap}
+.hero-tag{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--mid);background:var(--light);border:1px solid var(--border);padding:3px 10px;border-radius:20px}
+.li-dot{width:8px;height:8px;background:var(--li-blue);border-radius:50%;flex-shrink:0}
+
+/* ── KPI CARDS ── */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1rem}
+.card{background:var(--white);border-radius:var(--radius);border:1px solid var(--border);padding:1.1rem 1.2rem;box-shadow:var(--shadow);border-left:4px solid var(--maroon)}
+.card-yr{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--maroon);margin-bottom:.2rem}
+.card-val{font-size:28px;font-family:Georgia,serif;font-weight:normal;line-height:1.1;margin:.2rem 0}
+.card-lbl{font-size:11px;color:var(--mid)}
+.card-chg{font-size:12px;margin-top:.4rem;font-weight:600}
+.card-chg.up{color:#1a8c65}.card-chg.dn{color:#b53a2a}
+
+/* ── CHART ── */
+.chart-hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.9rem;flex-wrap:wrap;gap:.5rem}
+.chart-title{font-family:Georgia,serif;font-size:16px}
+.chart-wrap{position:relative;width:100%;height:280px}
+.seg{display:flex;background:var(--light);border-radius:7px;border:1px solid var(--border);padding:2px;gap:2px}
+.seg button{padding:4px 12px;border:none;background:transparent;border-radius:5px;font-size:13px;font-family:inherit;color:var(--mid);cursor:pointer;transition:all .12s}
+.seg button.active{background:var(--white);color:var(--dark);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.seg button:hover:not(.active){background:rgba(255,255,255,.65);color:var(--dark)}
+
+/* ── SECTION HEADERS ── */
+.sec-title{font-family:Georgia,serif;font-size:18px;color:var(--maroon);margin-bottom:.2rem}
+.sec-desc{font-size:13px;color:var(--mid);margin-bottom:1.1rem;line-height:1.4}
+
+/* ── FILTERS ── */
+.filter-row{display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;margin-bottom:1.1rem}
+.filter-row label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mid)}
+select{padding:6px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-family:inherit;color:var(--dark);background:var(--white);cursor:pointer}
+select:focus{outline:none;border-color:var(--maroon);box-shadow:0 0 0 2px rgba(126,22,45,.1)}
+.search-wrap{flex:1;min-width:180px;max-width:320px;position:relative}
+.search-wrap input{width:100%;padding:6px 10px 6px 30px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-family:inherit;color:var(--dark);background:var(--white)}
+.search-wrap input:focus{outline:none;border-color:var(--maroon);box-shadow:0 0 0 2px rgba(126,22,45,.1)}
+.search-icon{position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--mid);pointer-events:none}
+.results-count{font-size:12px;color:var(--mid);margin-left:auto}
+
+/* ── POST FEED ── */
+.post-feed{display:flex;flex-direction:column;gap:.75rem}
+.post-card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;transition:box-shadow .15s}
+.post-card:hover{box-shadow:0 3px 12px rgba(0,0,0,.09)}
+.post-header{display:flex;align-items:center;justify-content:space-between;padding:.75rem 1rem .5rem;gap:1rem;flex-wrap:wrap}
+.post-date{font-size:12px;color:var(--mid);white-space:nowrap}
+.post-metrics{display:flex;gap:.75rem;flex-wrap:wrap}
+.metric-pill{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;color:var(--dark);background:var(--light);padding:3px 9px;border-radius:20px;border:1px solid var(--border)}
+.metric-pill.highlight{background:var(--gold-light);border-color:var(--gold)}
+.metric-pill svg{width:12px;height:12px;flex-shrink:0;opacity:.6}
+.post-body{padding:.25rem 1rem .75rem}
+.post-text{font-size:13.5px;line-height:1.6;color:var(--dark);white-space:pre-wrap;word-break:break-word}
+.post-text.truncated{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;white-space:normal}
+.post-footer{padding:.5rem 1rem .75rem;display:flex;align-items:center;justify-content:space-between;gap:.75rem;border-top:1px solid var(--border);background:rgba(247,245,242,.5)}
+.expand-btn{background:none;border:none;cursor:pointer;font-size:12px;color:var(--maroon);font-family:inherit;font-weight:600;padding:0;display:flex;align-items:center;gap:4px}
+.expand-btn:hover{text-decoration:underline}
+.li-link{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--li-blue);text-decoration:none;font-weight:600}
+.li-link:hover{text-decoration:underline}
+.li-link svg{width:13px;height:13px}
+.content-type-badge{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--mid);background:var(--light);border:1px solid var(--border);padding:2px 7px;border-radius:10px}
+
+/* ── NOTE ── */
+.note{font-size:12px;color:var(--mid);background:var(--gold-light);border-left:3px solid var(--gold);padding:.6rem 1rem;border-radius:0 var(--radius) var(--radius) 0}
+
+/* ── EMPTY STATE ── */
+.empty-state{text-align:center;color:var(--mid);font-size:13px;font-style:italic;padding:2.5rem 1rem;background:var(--light);border-radius:8px;border:1px dashed var(--border)}
+
+/* ── PAGINATION ── */
+.pagination{display:flex;align-items:center;justify-content:center;gap:.5rem;margin-top:1rem;flex-wrap:wrap}
+.page-btn{padding:5px 12px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-family:inherit;cursor:pointer;background:var(--white);color:var(--mid);transition:all .12s}
+.page-btn:hover:not(:disabled){border-color:var(--maroon);color:var(--maroon)}
+.page-btn.active{background:var(--maroon);color:#fff;border-color:var(--maroon)}
+.page-btn:disabled{opacity:.4;cursor:not-allowed}
+.page-info{font-size:12px;color:var(--mid)}
+
+footer{text-align:center;font-size:12px;color:var(--mid);padding:1.5rem 1.5rem 2rem;border-top:1px solid var(--border)}
+@media(max-width:640px){main{padding:1rem} .cards{grid-template-columns:repeat(2,1fr)} .card-val{font-size:22px}}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <a href="index.html" class="nav-back">
+      <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg>
+      Back to Org Dashboard
+    </a>
+    <h1 style="margin-top:.4rem">Influencer Analytics</h1>
+    <p>The Chicago Public Education Fund &mdash; Leadership Voices</p>
+  </div>
+  <div class="hbadge">LinkedIn</div>
+</header>
+
+<main>
+
+<!-- Profile Hero -->
+<div class="panel">
+  <div class="hero">
+    <div class="hero-avatar">HA</div>
+    <div class="hero-info">
+      <h2>Heather Y. Anichini</h2>
+      <p>CEO, The Chicago Public Education Fund</p>
+      <div class="hero-meta">
+        <span class="hero-tag"><span class="li-dot"></span>LinkedIn Personal Profile</span>
+        <span class="hero-tag" id="heroDateRange">—</span>
+        <span class="hero-tag" id="heroPostCount">—</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- KPI Cards -->
+<div id="cardArea"></div>
+
+<!-- Note about impressions -->
+<div class="note">&#9432; LinkedIn only began sharing impression data for personal accounts in early 2026. Engagement metrics (reactions, comments) are available for all posts since January 2024 and are the primary performance indicator for this profile.</div>
+
+<!-- Engagement Chart -->
+<div class="panel">
+  <div class="chart-hdr">
+    <div class="chart-title">Engagements per post over time</div>
+    <div class="seg" id="chartSeg">
+      <button class="active" data-v="scatter">Per Post</button>
+      <button data-v="monthly">Monthly Total</button>
+    </div>
+  </div>
+  <div class="chart-wrap"><canvas id="engChart"></canvas></div>
+</div>
+
+<!-- Post Feed -->
+<div class="panel">
+  <div class="sec-title">Post Feed</div>
+  <div class="sec-desc">All posts sorted newest first. Click any post to expand the full text.</div>
+
+  <div class="filter-row">
+    <label>Year</label>
+    <select id="filterYear" onchange="applyFilters()">
+      <option value="all">All years</option>
+      <option value="2026">2026</option>
+      <option value="2025">2025</option>
+      <option value="2024">2024</option>
+    </select>
+    <label>Sort by</label>
+    <select id="filterSort" onchange="applyFilters()">
+      <option value="newest">Newest first</option>
+      <option value="oldest">Oldest first</option>
+      <option value="eng">Most engaged</option>
+      <option value="reactions">Most reactions</option>
+    </select>
+    <div class="search-wrap">
+      <span class="search-icon">
+        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      </span>
+      <input type="text" id="searchInput" placeholder="Search post text…" oninput="applyFilters()">
+    </div>
+    <span class="results-count" id="resultsCount"></span>
+  </div>
+
+  <div id="postFeed"></div>
+  <div id="pagination"></div>
+</div>
+
+</main>
+<footer>
+  Data sourced from Sprout Social &mdash; LinkedIn &middot; The Chicago Public Education Fund<br>
+  Personal account data. Impressions available from January 2026 onward.
+</footer>
+
+<script>
+const D = window.INFLUENCER_DATA;
+const POSTS = D.posts.slice().reverse(); // newest first by default
+const PAGE_SIZE = 20;
+const YEARS = [2026, 2025, 2024];
+const YR_COLORS = {2026:'#9B4ECA', 2025:'#7E162D', 2024:'#185FA5'};
+
+let filteredPosts = [...POSTS];
+let currentPage = 1;
+let chartView = 'scatter';
+let engChart = null;
+
+// ── HELPERS ────────────────────────────────────────────────────────────────
+function fmt(v) {
+  if (v == null) return '—';
+  if (v >= 1000) return (v/1000).toFixed(1) + 'K';
+  return Math.round(v).toLocaleString();
+}
+function fmtDate(str) {
+  const d = new Date(str + 'T12:00:00');
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+// ── HERO META ──────────────────────────────────────────────────────────────
+document.getElementById('heroDateRange').textContent =
+  fmtDate(D.meta.firstDate) + ' – ' + fmtDate(D.meta.lastDate);
+document.getElementById('heroPostCount').textContent =
+  D.meta.totalPosts + ' posts tracked';
+
+// ── KPI CARDS ──────────────────────────────────────────────────────────────
+function renderCards() {
+  const area = document.getElementById('cardArea');
+  let html = '<div class="cards">';
+
+  YEARS.forEach(yr => {
+    const s = D.annual[String(yr)];
+    if (!s) return;
+    const prev = D.annual[String(yr - 1)];
+    const c = YR_COLORS[yr];
+
+    const avgEng = s.posts > 0 ? (s.eng / s.posts) : 0;
+    const prevAvg = prev && prev.posts > 0 ? (prev.eng / prev.posts) : null;
+
+    let chg = '';
+    if (prevAvg !== null && prevAvg > 0) {
+      const pct = (avgEng - prevAvg) / prevAvg * 100;
+      const cls = pct >= 0 ? 'up' : 'dn';
+      chg = `<div class="card-chg ${cls}">${pct>=0?'↑':'↓'} ${pct>=0?'+':''}${pct.toFixed(1)}% vs ${yr-1}</div>`;
+    }
+
+    html += `<div class="card" style="border-left-color:${c}">
+      <div class="card-yr" style="color:${c}">${yr}</div>
+      <div class="card-val">${fmt(avgEng)}</div>
+      <div class="card-lbl">Avg engagements / post</div>
+      ${chg}
+    </div>`;
+
+    html += `<div class="card" style="border-left-color:${c}">
+      <div class="card-yr" style="color:${c}">${yr}</div>
+      <div class="card-val">${fmt(s.eng)}</div>
+      <div class="card-lbl">Total engagements (${s.posts} posts)</div>
+    </div>`;
+  });
+
+  // 2026 impressions card since it's only available that year
+  const s26 = D.annual['2026'];
+  if (s26 && s26.imp > 0) {
+    html += `<div class="card" style="border-left-color:#1D9E75">
+      <div class="card-yr" style="color:#1D9E75">2026 YTD</div>
+      <div class="card-val">${fmt(s26.imp)}</div>
+      <div class="card-lbl">Total impressions (Jan 2026+)</div>
+    </div>`;
+  }
+
+  html += '</div>';
+  area.innerHTML = html;
+}
+
+// ── CHART ──────────────────────────────────────────────────────────────────
+function buildChart() {
+  const ctx = document.getElementById('engChart').getContext('2d');
+  if (engChart) { engChart.destroy(); engChart = null; }
+
+  if (chartView === 'scatter') {
+    const datasets = YEARS.map(yr => ({
+      label: String(yr),
+      data: POSTS
+        .filter(p => p.year === yr)
+        .map(p => ({ x: p.date, y: p.eng || 0, post: p.post.slice(0,80) })),
+      backgroundColor: YR_COLORS[yr] + 'cc',
+      borderColor: YR_COLORS[yr],
+      pointRadius: 6,
+      pointHoverRadius: 8,
+    }));
+
+    engChart = new Chart(ctx, {
+      type: 'scatter',
+      data: { datasets },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode: 'nearest', intersect: true },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              title: items => fmtDate(items[0].raw.x),
+              label: item => [
+                ` ${item.raw.y} engagements`,
+                ` "${item.raw.post}…"`
+              ]
+            }
+          }
+        },
+        scales: {
+          x: {
+            type: 'category',
+            ticks: { color:'#999', font:{size:11}, maxTicksLimit:12,
+              callback: function(val) {
+                const v = this.getLabelForValue(val);
+                return v ? v.slice(0,7) : '';
+              }
+            },
+            grid: { color:'rgba(64,64,65,0.05)' }
+          },
+          y: {
+            beginAtZero: true,
+            grid: { color:'rgba(64,64,65,0.05)' },
+            ticks: { color:'#999', font:{size:11} }
+          }
+        }
+      }
+    });
+  } else {
+    // Monthly totals bar chart
+    const monthKeys = Object.keys(D.monthly).sort();
+    const labels = monthKeys.map(k => {
+      const [yr, mo] = k.split('-');
+      const mn = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      return mn[parseInt(mo)] + ' ' + yr;
+    });
+    const engData = monthKeys.map(k => D.monthly[k].eng);
+    const postData = monthKeys.map(k => D.monthly[k].posts);
+    const bgColors = monthKeys.map(k => {
+      const yr = parseInt(k.split('-')[0]);
+      return (YR_COLORS[yr] || '#888') + 'cc';
+    });
+
+    engChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Total engagements',
+          data: engData,
+          backgroundColor: bgColors,
+          borderColor: bgColors.map(c => c.replace('cc','')),
+          borderWidth: 1.5,
+          borderRadius: 3,
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              afterLabel: (item) => ` ${postData[item.dataIndex]} posts this month`
+            }
+          }
+        },
+        scales: {
+          x: {
+            grid: { color:'rgba(64,64,65,0.05)' },
+            ticks: { color:'#999', font:{size:11}, maxRotation:45 }
+          },
+          y: {
+            beginAtZero: true,
+            grid: { color:'rgba(64,64,65,0.05)' },
+            ticks: { color:'#999', font:{size:11} }
+          }
+        }
+      }
+    });
+  }
+}
+
+// ── POST FEED ──────────────────────────────────────────────────────────────
+const expandedPosts = new Set();
+
+function renderFeed() {
+  const feed = document.getElementById('postFeed');
+  const start = (currentPage - 1) * PAGE_SIZE;
+  const pagePosts = filteredPosts.slice(start, start + PAGE_SIZE);
+
+  if (pagePosts.length === 0) {
+    feed.innerHTML = '<div class="empty-state">No posts match your filters.</div>';
+    document.getElementById('pagination').innerHTML = '';
+    return;
+  }
+
+  feed.innerHTML = pagePosts.map((p, i) => {
+    const globalIdx = start + i;
+    const isExpanded = expandedPosts.has(p.link);
+    const truncClass = isExpanded ? '' : 'truncated';
+    const needsTrunc = p.post.length > 200;
+
+    const metrics = [];
+    if (p.eng != null) metrics.push(`<span class="metric-pill highlight">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+      ${fmt(p.eng)} eng</span>`);
+    if (p.reactions != null) metrics.push(`<span class="metric-pill">👍 ${fmt(p.reactions)}</span>`);
+    if (p.comments != null && p.comments > 0) metrics.push(`<span class="metric-pill">💬 ${fmt(p.comments)}</span>`);
+    if (p.imp != null) metrics.push(`<span class="metric-pill">👁 ${fmt(p.imp)} imp</span>`);
+    if (p.reach != null) metrics.push(`<span class="metric-pill">📡 ${fmt(p.reach)} reach</span>`);
+
+    return `<div class="post-card" id="post-${globalIdx}">
+      <div class="post-header">
+        <div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap">
+          <span class="post-date">${fmtDate(p.date)}</span>
+          <span class="content-type-badge">${p.contentType}</span>
+          ${p.tags ? `<span class="content-type-badge" style="color:var(--maroon);border-color:var(--gold)">${p.tags}</span>` : ''}
+        </div>
+        <div class="post-metrics">${metrics.join('')}</div>
+      </div>
+      <div class="post-body">
+        <div class="post-text ${truncClass}" id="text-${globalIdx}">${escHtml(p.post)}</div>
+      </div>
+      <div class="post-footer">
+        ${needsTrunc ? `<button class="expand-btn" onclick="toggleExpand('${escAttr(p.link)}', ${globalIdx})" id="btn-${globalIdx}">
+          ${isExpanded ? '▲ Show less' : '▼ Read more'}
+        </button>` : '<span></span>'}
+        <a href="${escAttr(p.link)}" target="_blank" rel="noopener" class="li-link">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.064 2.064 0 1 1 2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+          View on LinkedIn
+        </a>
+      </div>
+    </div>`;
+  }).join('');
+
+  renderPagination();
+}
+
+function toggleExpand(link, idx) {
+  const textEl = document.getElementById(`text-${idx}`);
+  const btnEl  = document.getElementById(`btn-${idx}`);
+  if (expandedPosts.has(link)) {
+    expandedPosts.delete(link);
+    textEl.classList.add('truncated');
+    btnEl.textContent = '▼ Read more';
+  } else {
+    expandedPosts.add(link);
+    textEl.classList.remove('truncated');
+    btnEl.textContent = '▲ Show less';
+  }
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function escAttr(s) {
+  return s.replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function renderPagination() {
+  const total = filteredPosts.length;
+  const pages = Math.ceil(total / PAGE_SIZE);
+  const pg = document.getElementById('pagination');
+
+  if (pages <= 1) { pg.innerHTML = ''; return; }
+
+  let html = `<div class="pagination">
+    <button class="page-btn" onclick="goPage(${currentPage-1})" ${currentPage===1?'disabled':''}>← Prev</button>`;
+
+  for (let i = 1; i <= pages; i++) {
+    if (i === 1 || i === pages || Math.abs(i - currentPage) <= 1) {
+      html += `<button class="page-btn ${i===currentPage?'active':''}" onclick="goPage(${i})">${i}</button>`;
+    } else if (Math.abs(i - currentPage) === 2) {
+      html += `<span class="page-info">…</span>`;
+    }
+  }
+
+  html += `<button class="page-btn" onclick="goPage(${currentPage+1})" ${currentPage===pages?'disabled':''}>Next →</button>
+    <span class="page-info">${total} posts</span>
+  </div>`;
+  pg.innerHTML = html;
+}
+
+function goPage(p) {
+  const pages = Math.ceil(filteredPosts.length / PAGE_SIZE);
+  if (p < 1 || p > pages) return;
+  currentPage = p;
+  renderFeed();
+  document.getElementById('postFeed').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ── FILTERS ────────────────────────────────────────────────────────────────
+function applyFilters() {
+  const yr    = document.getElementById('filterYear').value;
+  const sort  = document.getElementById('filterSort').value;
+  const query = document.getElementById('searchInput').value.toLowerCase().trim();
+
+  let result = POSTS.filter(p => {
+    if (yr !== 'all' && p.year !== parseInt(yr)) return false;
+    if (query && !p.post.toLowerCase().includes(query)) return false;
+    return true;
+  });
+
+  if (sort === 'oldest')    result.sort((a,b) => a.date.localeCompare(b.date));
+  else if (sort === 'eng')  result.sort((a,b) => (b.eng||0) - (a.eng||0));
+  else if (sort === 'reactions') result.sort((a,b) => (b.reactions||0) - (a.reactions||0));
+  // newest is default (already reversed)
+
+  filteredPosts = result;
+  currentPage = 1;
+  document.getElementById('resultsCount').textContent =
+    result.length === POSTS.length ? '' : `${result.length} of ${POSTS.length} posts`;
+  renderFeed();
+}
+
+// ── CHART SEG ──────────────────────────────────────────────────────────────
+document.getElementById('chartSeg').querySelectorAll('button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.getElementById('chartSeg').querySelectorAll('button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    chartView = btn.dataset.v;
+    buildChart();
+  });
+});
+
+// ── INIT ───────────────────────────────────────────────────────────────────
+renderCards();
+buildChart();
+renderFeed();
+</script>
+</body>
+</html>
