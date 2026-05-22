@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Social Media Analytics | The Chicago Public Education Fund</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --maroon:#7E162D;--gold:#DAC99B;--gold-light:#f5edd8;
+  --dark:#404041;--mid:#6b6b6c;--light:#f7f5f2;
+  --white:#ffffff;--border:rgba(64,64,65,0.13);
+  --radius:10px;--shadow:0 1px 4px rgba(0,0,0,0.07),0 1px 2px rgba(0,0,0,0.04);
+}
+body{font-family:Calibri,"Segoe UI",Arial,sans-serif;background:var(--light);color:var(--dark);font-size:15px;line-height:1.5}
+header{background:var(--maroon);color:var(--white);padding:1.4rem 2rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem}
+header h1{font-family:Georgia,serif;font-size:22px;font-weight:normal}
+header p{font-size:13px;opacity:.75;margin-top:2px}
+.hbadge{background:rgba(255,255,255,.15);padding:5px 14px;border-radius:20px;font-size:13px;white-space:nowrap}
+main{max-width:1160px;margin:0 auto;padding:1.75rem 2rem 3rem;display:flex;flex-direction:column;gap:1.5rem}
+.panel{background:var(--white);border-radius:var(--radius);border:1px solid var(--border);padding:1.25rem 1.5rem;box-shadow:var(--shadow)}
+.controls{padding:1.1rem 1.4rem;display:flex;flex-direction:column;gap:.85rem}
+.crow{display:flex;align-items:center;flex-wrap:wrap;gap:1.1rem}
+.clabel{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mid);white-space:nowrap;min-width:60px}
+.seg{display:flex;background:var(--light);border-radius:7px;border:1px solid var(--border);padding:2px;gap:2px}
+.seg button{padding:5px 12px;border:none;background:transparent;border-radius:5px;font-size:13px;font-family:inherit;color:var(--mid);cursor:pointer;transition:all .12s;white-space:nowrap}
+.seg button.active{background:var(--white);color:var(--dark);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.seg button:hover:not(.active){background:rgba(255,255,255,.65);color:var(--dark)}
+.cdiv{width:1px;height:26px;background:var(--border);flex-shrink:0}
+.yr-wrap{display:flex;gap:6px;flex-wrap:wrap}
+.yrbtn{padding:5px 13px;border:2px solid var(--border);border-radius:7px;font-size:13px;font-family:inherit;cursor:pointer;transition:all .12s;font-weight:600;background:transparent;color:var(--mid)}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:1rem}
+.card{background:var(--white);border-radius:var(--radius);border:1px solid var(--border);padding:1.1rem 1.2rem;box-shadow:var(--shadow);border-left:4px solid}
+.card-yr{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:.2rem}
+.card-val{font-size:28px;font-family:Georgia,serif;font-weight:normal;line-height:1.1;margin:.2rem 0}
+.card-lbl{font-size:11px;color:var(--mid)}
+.card-chg{font-size:12px;margin-top:.4rem;font-weight:600}
+.card-chg.up{color:#1a8c65}.card-chg.dn{color:#b53a2a}
+.chart-hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.9rem;flex-wrap:wrap;gap:.5rem}
+.chart-title{font-family:Georgia,serif;font-size:16px}
+.legend{display:flex;gap:.9rem;flex-wrap:wrap;align-items:center}
+.litem{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--mid)}
+.ldot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.chart-wrap{position:relative;width:100%;height:320px}
+.note{font-size:12px;color:var(--mid);background:var(--gold-light);border-left:3px solid var(--gold);padding:.6rem 1rem;border-radius:0 var(--radius) var(--radius) 0}
+.sec-title{font-family:Georgia,serif;font-size:18px;color:var(--maroon);margin-bottom:.2rem}
+.sec-desc{font-size:13px;color:var(--mid);margin-bottom:1.1rem;line-height:1.4}
+.pt-controls{display:flex;gap:.75rem;align-items:center;flex-wrap:wrap;margin-bottom:1.1rem}
+select{padding:6px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-family:inherit;color:var(--dark);background:var(--white);cursor:pointer}
+select:focus{outline:none;border-color:var(--maroon);box-shadow:0 0 0 2px rgba(126,22,45,.1)}
+.pt-grid{overflow-x:auto;border:1px solid var(--border);border-radius:8px}
+.pt-table{width:100%;border-collapse:collapse;font-size:13px}
+.pt-table th{text-align:left;padding:8px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--mid);border-bottom:2px solid var(--border);background:var(--light);white-space:nowrap}
+.pt-table th:not(:first-child){text-align:right}
+.pt-table td{padding:10px 14px;border-bottom:1px solid var(--border)}
+.pt-table td:not(:first-child){text-align:right;font-variant-numeric:tabular-nums;font-weight:500}
+.pt-table tr:last-child td{border-bottom:none}
+.pt-table tr:hover td{background:rgba(247,245,242,.6)}
+.metric-lbl{display:flex;align-items:center;gap:8px}
+.metric-dot{width:8px;height:8px;border-radius:2px;flex-shrink:0}
+.null-val{color:#bbb;font-style:italic;font-weight:400}
+.snap-rows{display:flex;flex-direction:column;gap:.6rem;margin-bottom:.85rem}
+.snap-row{display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;background:var(--light);border-radius:8px;padding:.55rem .9rem;border:1px solid var(--border)}
+.snap-pill{display:inline-flex;align-items:center;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;color:white;flex-shrink:0}
+.snap-sels{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;flex:1}
+.btn{padding:6px 16px;border:none;border-radius:7px;font-size:13px;font-family:inherit;cursor:pointer;transition:all .12s;font-weight:500}
+.btn-p{background:var(--maroon);color:var(--white)}.btn-p:hover{background:#6a1126}.btn-p:disabled{opacity:.4;cursor:not-allowed}
+.btn-g{background:transparent;border:1px solid var(--border);color:var(--mid)}.btn-g:hover{border-color:var(--maroon);color:var(--maroon)}
+.btn-rm{background:transparent;border:none;color:var(--mid);font-size:18px;cursor:pointer;padding:1px 6px;border-radius:5px;line-height:1;transition:all .1s;flex-shrink:0}
+.btn-rm:hover{background:#fee2e2;color:#b53a2a}
+.add-row{display:flex;gap:.75rem;align-items:center}
+.snap-tbl-wrap{margin-top:1.1rem;overflow-x:auto;border:1px solid var(--border);border-radius:8px}
+.snap-tbl{width:100%;border-collapse:collapse;font-size:13px}
+.snap-tbl thead tr{background:var(--light)}
+.snap-tbl th{text-align:left;padding:9px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--mid);border-bottom:2px solid var(--border);white-space:nowrap}
+.snap-tbl th:not(:first-child){text-align:right}
+.snap-tbl td{padding:10px 14px;border-bottom:1px solid var(--border);vertical-align:middle}
+.snap-tbl td:not(:first-child){text-align:right;font-variant-numeric:tabular-nums;font-weight:500}
+.snap-tbl tr:last-child td{border-bottom:none}
+.snap-tbl tbody tr:hover td{background:rgba(247,245,242,.6)}
+.snap-info{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.snap-lbl{font-size:13px;font-weight:600;color:var(--dark)}
+.empty-state{text-align:center;color:var(--mid);font-size:13px;font-style:italic;padding:2rem 1rem;background:var(--light);border-radius:8px;border:1px dashed var(--border);margin-top:1rem}
+footer{text-align:center;font-size:12px;color:var(--mid);padding:1.5rem 1.5rem 2rem;border-top:1px solid var(--border)}
+footer p{margin-top:3px}
+@media(max-width:640px){main{padding:1rem} .seg button{padding:5px 8px;font-size:12px} .yrbtn{padding:4px 10px;font-size:12px} .chart-wrap{height:240px}}
+</style>
+</head>
+<body>
+<header>
+  <div><h1>Social Media Analytics</h1><p id="headerSubtitle">The Chicago Public Education Fund &mdash; 2022 through 2026</p></div>
+  <div class="hbadge">X &middot; Facebook &middot; LinkedIn</div>
+</header>
+<main>
+
+<div class="panel controls">
+  <div class="crow">
+    <span class="clabel">Metric</span>
+    <div class="seg" id="metricSeg">
+      <button class="active" data-m="imp">Impressions</button>
+      <button data-m="eng">Engagements</button>
+      <button data-m="rate">Eng. Rate</button>
+      <button data-m="aud">Audience</button>
+    </div>
+    <div class="cdiv"></div>
+    <span class="clabel">Granularity</span>
+    <div class="seg" id="granSeg">
+      <button data-g="weekly">Weekly</button>
+      <button class="active" data-g="monthly">Monthly</button>
+      <button data-g="quarterly">Quarterly</button>
+      <button data-g="annual">Annual</button>
+    </div>
+    <div class="cdiv"></div>
+    <span class="clabel">View</span>
+    <div class="seg" id="viewSeg">
+      <button class="active" data-v="timeline">Timeline</button>
+      <button data-v="byperiod">By Period</button>
+    </div>
+  </div>
+  <div class="crow">
+    <span class="clabel">Years</span>
+    <div class="yr-wrap" id="yrToggles"></div>
+    <div class="cdiv"></div>
+    <span class="clabel">Platform</span>
+    <div class="seg" id="platSeg">
+      <button class="active" data-p="all">All</button>
+      <button data-p="x">X</button>
+      <button data-p="fb">Facebook</button>
+      <button data-p="li">LinkedIn</button>
+    </div>
+  </div>
+</div>
+
+<div id="cardArea"></div>
+
+<div class="note">&#9432; Facebook impressions in July&ndash;September 2024 were anomalously high due to a viral post and significantly skew that year&rsquo;s totals. Filter to X or LinkedIn for a clearer picture of 2024 trends.</div>
+
+<div class="panel">
+  <div class="chart-hdr">
+    <div class="chart-title" id="chartTitle">Impressions over time</div>
+    <div class="legend" id="chartLegend"></div>
+  </div>
+  <div class="chart-wrap"><canvas id="mainChart"></canvas></div>
+</div>
+
+<div class="panel">
+  <div class="sec-title">Period Totals</div>
+  <div class="sec-desc">Select any week, month, quarter, or year to see a full breakdown of all metrics across every platform.</div>
+  <div class="pt-controls">
+    <select id="ptGran" onchange="ptGranChange()">
+      <option value="weekly">Week</option>
+      <option value="monthly" selected>Month</option>
+      <option value="quarterly">Quarter</option>
+      <option value="annual">Year</option>
+    </select>
+    <select id="ptPeriod" onchange="renderPeriodTable()"></select>
+  </div>
+  <div id="ptArea"></div>
+</div>
+
+<div class="panel">
+  <div class="sec-title">Snapshot Comparison</div>
+  <div class="sec-desc">Compare any combination of months and years side by side across all platforms for the current metric.</div>
+  <div class="snap-rows" id="snapRows"></div>
+  <div class="add-row">
+    <button class="btn btn-p" id="addBtn" onclick="addSnap()">+ Add Snapshot</button>
+    <button class="btn btn-g" onclick="clearSnaps()">Clear all</button>
+  </div>
+  <div id="snapArea"></div>
+</div>
+
+</main>
+<footer>
+  Data sourced from Sprout Social &mdash; X, Facebook, and LinkedIn &middot; The Chicago Public Education Fund
+  <p>Upload updated CSV exports to refresh all data. <span id="lastDateNote">Loading...</span></p>
+</footer>
+
+<script src="data.js"></script>
+<script>
+const DATA = window.DASHBOARD_DATA;
+
+const MONTHS_S = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const MONTHS_F = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const YEARS = [2026,2025,2024,2023,2022];
+const YR_COLORS = {2026:'#9B4ECA',2025:'#7E162D',2024:'#185FA5',2023:'#1D9E75',2022:'#888780'};
+const METRIC_LABELS = {imp:'Impressions',eng:'Engagements',rate:'Eng. Rate',aud:'Audience'};
+const METRIC_CARD  = {imp:'Total impressions',eng:'Total engagements',rate:'Avg eng. rate',aud:'Audience (period end)'};
+const METRIC_DOT_COLORS = {imp:'#185FA5',eng:'#7E162D',rate:'#1D9E75',aud:'#888780'};
+
+let metric   = 'imp';
+let gran     = 'monthly';
+let viewMode = 'timeline';
+let platform = 'all';
+let activeYears = new Set([2025,2024,2023,2022]);
+let snaps = [], snapId = 0;
+let chart = null;
+
+function fmt(v, m) {
+  if (v == null || v === undefined) return '—';
+  if (m === 'rate') return v.toFixed(1) + '%';
+  if (v >= 1000000) return (v/1000000).toFixed(1) + 'M';
+  if (v >= 1000)    return (v/1000).toFixed(1) + 'K';
+  return Math.round(v).toLocaleString();
+}
+
+function getVal(granKey, periodKey, plt, m) {
+  const pk = plt === 'all' ? 'all' : plt;
+  if (granKey === 'weekly') {
+    const w = DATA.weekly[periodKey];
+    return w ? (w[pk]?.[m] ?? null) : null;
+  }
+  if (granKey === 'monthly') {
+    const [y, mo] = periodKey.split(':');
+    return DATA.monthly[y]?.[mo]?.[pk]?.[m] ?? null;
+  }
+  if (granKey === 'quarterly') {
+    const [y, q] = periodKey.split(':');
+    return DATA.quarterly[y]?.[q]?.[pk]?.[m] ?? null;
+  }
+  return DATA.annual[periodKey]?.[pk]?.[m] ?? null;
+}
+
+function annualSummary(yr, m, plt) {
+  return getVal('annual', String(yr), plt, m);
+}
+
+function renderYrToggles() {
+  const wrap = document.getElementById('yrToggles');
+  wrap.innerHTML = '';
+  YEARS.forEach(yr => {
+    const on = activeYears.has(yr);
+    const c  = YR_COLORS[yr];
+    const btn = document.createElement('button');
+    btn.className = 'yrbtn';
+    btn.textContent = yr;
+    btn.style.borderColor = on ? c : 'rgba(64,64,65,0.15)';
+    btn.style.background  = on ? c : 'transparent';
+    btn.style.color       = on ? '#fff' : '#888';
+    btn.addEventListener('click', () => {
+      if (activeYears.has(yr)) { if (activeYears.size > 1) activeYears.delete(yr); }
+      else activeYears.add(yr);
+      renderYrToggles(); updateAll();
+    });
+    btn.addEventListener('mouseenter', () => { if (!activeYears.has(yr)) { btn.style.borderColor=c; btn.style.color=c; }});
+    btn.addEventListener('mouseleave', () => { if (!activeYears.has(yr)) { btn.style.borderColor='rgba(64,64,65,0.15)'; btn.style.color='#888'; }});
+    wrap.appendChild(btn);
+  });
+}
+
+function renderCards() {
+  const area = document.getElementById('cardArea');
+  const sorted = [...activeYears].sort((a,b) => b-a);
+  let html = '<div class="cards">';
+  sorted.forEach(yr => {
+    const v    = annualSummary(yr, metric, platform);
+    const prev = annualSummary(yr-1, metric, platform);
+    const c    = YR_COLORS[yr];
+    let chg = '';
+    if (v != null && prev != null && prev !== 0) {
+      const pct = (v-prev)/prev*100;
+      const cls = pct >= 0 ? 'up' : 'dn';
+      chg = `<div class="card-chg ${cls}">${pct>=0?'↑':'↓'} ${pct>=0?'+':''}${pct.toFixed(1)}% vs ${yr-1}</div>`;
+    } else if (v == null) {
+      chg = '<div class="card-chg" style="color:#bbb;font-style:italic">No data yet</div>';
+    }
+    html += `<div class="card" style="border-left-color:${c}">
+      <div class="card-yr" style="color:${c}">${yr}</div>
+      <div class="card-val">${v!=null?fmt(v,metric):'—'}</div>
+      <div class="card-lbl">${METRIC_CARD[metric]} (annual)</div>
+      ${chg}</div>`;
+  });
+  html += '</div>';
+  area.innerHTML = html;
+}
+
+function getSeriesData(yr) {
+  if (gran === 'weekly') {
+    return DATA.weekly.filter(w => w.wy === yr).map(w => ({ x: w.label, y: w[platform==='all'?'all':platform]?.[metric] ?? null }));
+  }
+  if (gran === 'monthly') {
+    return MONTHS_S.map((m, i) => ({ x: m, y: DATA.monthly[yr]?.[i]?.[platform==='all'?'all':platform]?.[metric] ?? null }));
+  }
+  if (gran === 'quarterly') {
+    return [1,2,3,4].map(q => ({ x: 'Q'+q, y: DATA.quarterly[yr]?.[q]?.[platform==='all'?'all':platform]?.[metric] ?? null }));
+  }
+  return [{ x: String(yr), y: DATA.annual[yr]?.[platform==='all'?'all':platform]?.[metric] ?? null }];
+}
+
+function buildChart() {
+  const sorted = [...activeYears].sort((a,b) => a-b);
+  let labels, datasets;
+  const pk = platform === 'all' ? 'all' : platform;
+
+  if (viewMode === 'byperiod') {
+    if (gran === 'weekly') {
+      labels = Array.from({length:52},(_,i)=>'W'+(i+1));
+      datasets = sorted.map(yr => ({
+        label: String(yr),
+        data: Array.from({length:52},(_,i) => {
+          const w = DATA.weekly.find(w => w.wy===yr && w.wn===i+1);
+          return w ? (w[pk]?.[metric] ?? null) : null;
+        }),
+        borderColor: YR_COLORS[yr], backgroundColor: YR_COLORS[yr]+'15',
+        borderWidth:2.5, pointRadius:2, pointHoverRadius:5, tension:.35, spanGaps:false
+      }));
+    } else if (gran === 'monthly') {
+      labels = MONTHS_S;
+      datasets = sorted.map(yr => ({
+        label: String(yr),
+        data: MONTHS_S.map((_,i) => DATA.monthly[yr]?.[i]?.[pk]?.[metric] ?? null),
+        borderColor: YR_COLORS[yr], backgroundColor: YR_COLORS[yr]+'15',
+        borderWidth:2.5, pointRadius:4, pointHoverRadius:6, tension:.35, spanGaps:false
+      }));
+    } else if (gran === 'quarterly') {
+      labels = ['Q1','Q2','Q3','Q4'];
+      datasets = sorted.map(yr => ({
+        label: String(yr),
+        data: [1,2,3,4].map(q => DATA.quarterly[yr]?.[q]?.[pk]?.[metric] ?? null),
+        borderColor: YR_COLORS[yr], backgroundColor: YR_COLORS[yr]+'15',
+        borderWidth:2.5, pointRadius:6, pointHoverRadius:8, tension:.2, spanGaps:false
+      }));
+    } else {
+      viewMode = 'timeline';
+      document.querySelectorAll('#viewSeg button').forEach(b => b.classList.toggle('active', b.dataset.v==='timeline'));
+      return buildChart();
+    }
+  } else {
+    if (gran === 'weekly') {
+      const minYr = Math.min(...sorted), maxYr = Math.max(...sorted);
+      const allWeeks = DATA.weekly.filter(w => w.wy >= minYr && w.wy <= maxYr);
+      labels = allWeeks.map(w => w.label);
+      datasets = sorted.map(yr => ({
+        label: String(yr),
+        data: allWeeks.map(w => w.wy===yr ? (w[pk]?.[metric] ?? null) : null),
+        borderColor: YR_COLORS[yr], backgroundColor: YR_COLORS[yr]+'15',
+        borderWidth:2, pointRadius:0, pointHoverRadius:4, tension:.3, spanGaps:false
+      }));
+    } else if (gran === 'monthly') {
+      const minYr = Math.min(...sorted), maxYr = Math.max(...sorted);
+      labels = [];
+      for (let y=minYr; y<=maxYr; y++) MONTHS_S.forEach(m => labels.push(m+' '+y));
+      const totalSlots = (maxYr-minYr+1)*12;
+      datasets = sorted.map(yr => {
+        const offset = (yr-minYr)*12;
+        const padded = Array(totalSlots).fill(null);
+        MONTHS_S.forEach((_,i) => { const v = DATA.monthly[yr]?.[i]?.[pk]?.[metric]; if(v!=null) padded[offset+i]=v; });
+        return {label:String(yr), data:padded, borderColor:YR_COLORS[yr], backgroundColor:YR_COLORS[yr]+'15',
+          borderWidth:2.5, pointRadius:sorted.length>3?2:3, pointHoverRadius:5, tension:.35, spanGaps:false};
+      });
+    } else if (gran === 'quarterly') {
+      const minYr = Math.min(...sorted), maxYr = Math.max(...sorted);
+      labels = [];
+      for (let y=minYr; y<=maxYr; y++) [1,2,3,4].forEach(q => labels.push('Q'+q+' '+y));
+      const totalSlots = (maxYr-minYr+1)*4;
+      datasets = sorted.map(yr => {
+        const offset = (yr-minYr)*4;
+        const padded = Array(totalSlots).fill(null);
+        [1,2,3,4].forEach((q,i) => { const v = DATA.quarterly[yr]?.[q]?.[pk]?.[metric]; if(v!=null) padded[offset+i]=v; });
+        return {label:String(yr), data:padded, borderColor:YR_COLORS[yr], backgroundColor:YR_COLORS[yr]+'18',
+          borderWidth:3, pointRadius:5, pointHoverRadius:7, tension:.2, spanGaps:false};
+      });
+    } else {
+      labels = sorted.map(String);
+      datasets = [{
+        label: 'Annual',
+        data: sorted.map(yr => DATA.annual[yr]?.[pk]?.[metric] ?? null),
+        backgroundColor: sorted.map(yr => YR_COLORS[yr]+'cc'),
+        borderColor:     sorted.map(yr => YR_COLORS[yr]),
+        borderWidth: 1.5, borderRadius: 4
+      }];
+    }
+  }
+
+  const isRate = metric === 'rate';
+  const isAnnualBar = gran === 'annual' && viewMode === 'timeline';
+  const chartType = isAnnualBar ? 'bar' : 'line';
+  const titleMap = {imp:'Impressions',eng:'Engagements',rate:'Engagement Rate',aud:'Audience'};
+  const granLabel = {weekly:'Weekly',monthly:'Monthly',quarterly:'Quarterly',annual:'Annual'};
+  const viewLabel = viewMode==='byperiod' ? 'Year-over-Year Comparison' : 'over Time';
+  document.getElementById('chartTitle').textContent = `${titleMap[metric]} (${granLabel[gran]}) ${viewLabel}`;
+
+  const ctx = document.getElementById('mainChart').getContext('2d');
+  if (chart) { chart.destroy(); chart = null; }
+  chart = new Chart(ctx, {
+    type: chartType,
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ctx.parsed.y==null?null:` ${ctx.dataset.label}: ${fmt(ctx.parsed.y,metric)}` } }
+      },
+      scales: {
+        x: {
+          grid: { color:'rgba(64,64,65,0.05)' },
+          ticks: { color:'#999', font:{size:11}, maxRotation: gran==='weekly'?45:0,
+                   autoSkip:true, maxTicksLimit: gran==='weekly'?20:gran==='monthly'?18:12 }
+        },
+        y: {
+          beginAtZero: true,
+          grid: { color:'rgba(64,64,65,0.05)' },
+          ticks: { color:'#999', font:{size:11},
+                   callback: v => isRate ? v+'%' : v>=1000?(v/1000).toFixed(0)+'K':v }
+        }
+      }
+    }
+  });
+
+  const legendYears = isAnnualBar ? sorted : sorted.slice().reverse();
+  document.getElementById('chartLegend').innerHTML = legendYears.map(yr =>
+    `<span class="litem"><span class="ldot" style="background:${YR_COLORS[yr]}"></span>${yr}</span>`
+  ).join('');
+}
+
+function ptGranChange() {
+  buildPtPeriodOptions();
+  renderPeriodTable();
+}
+
+function buildPtPeriodOptions() {
+  const g = document.getElementById('ptGran').value;
+  const sel = document.getElementById('ptPeriod');
+  sel.innerHTML = '';
+  if (g === 'weekly') {
+    DATA.weekly.slice().reverse().forEach((w,i) => {
+      const idx = DATA.weekly.length - 1 - i;
+      const opt = document.createElement('option');
+      opt.value = idx;
+      opt.textContent = w.label;
+      if (w.wy===2026 && w.wn===20) opt.selected = true;
+      sel.appendChild(opt);
+    });
+  } else if (g === 'monthly') {
+    const entries = [];
+    for (const yr of [2026,2025,2024,2023,2022]) {
+      for (let mo=11; mo>=0; mo--) {
+        if (DATA.monthly[yr]?.[mo]) {
+          entries.push({key:`${yr}:${mo}`, label:`${MONTHS_F[mo]} ${yr}`});
+        }
+      }
+    }
+    entries.forEach((e,i) => {
+      const opt = document.createElement('option');
+      opt.value = e.key; opt.textContent = e.label;
+      if (i===0) opt.selected = true;
+      sel.appendChild(opt);
+    });
+  } else if (g === 'quarterly') {
+    for (const yr of [2026,2025,2024,2023,2022]) {
+      for (let q=4; q>=1; q--) {
+        if (DATA.quarterly[yr]?.[q]) {
+          const opt = document.createElement('option');
+          opt.value = `${yr}:${q}`; opt.textContent = `Q${q} ${yr}`;
+          sel.appendChild(opt);
+        }
+      }
+    }
+    sel.firstChild && (sel.firstChild.selected = true);
+  } else {
+    for (const yr of [2026,2025,2024,2023,2022]) {
+      if (DATA.annual[yr]) {
+        const opt = document.createElement('option');
+        opt.value = String(yr); opt.textContent = String(yr);
+        sel.appendChild(opt);
+      }
+    }
+    sel.firstChild && (sel.firstChild.selected = true);
+  }
+}
+
+function renderPeriodTable() {
+  const g   = document.getElementById('ptGran').value;
+  const key = document.getElementById('ptPeriod').value;
+  const area = document.getElementById('ptArea');
+  if (!key) { area.innerHTML = ''; return; }
+
+  const platforms = [
+    { key:'all', label:'All Platforms' },
+    { key:'x',   label:'X' },
+    { key:'fb',  label:'Facebook' },
+    { key:'li',  label:'LinkedIn' }
+  ];
+  const metrics = [
+    { key:'imp',  label:'Impressions',    color:METRIC_DOT_COLORS.imp },
+    { key:'eng',  label:'Engagements',    color:METRIC_DOT_COLORS.eng },
+    { key:'rate', label:'Eng. Rate',      color:METRIC_DOT_COLORS.rate },
+    { key:'aud',  label:'Audience',       color:METRIC_DOT_COLORS.aud },
+  ];
+
+  let html = `<div class="pt-grid"><table class="pt-table">
+    <thead><tr><th>Metric</th>${platforms.map(p=>`<th>${p.label}</th>`).join('')}</tr></thead>
+    <tbody>`;
+  metrics.forEach(m => {
+    html += `<tr><td><div class="metric-lbl"><span class="metric-dot" style="background:${m.color}"></span>${m.label}</div></td>`;
+    platforms.forEach(p => {
+      const v = getVal(g, isNaN(key) ? key : parseInt(key), p.key, m.key);
+      html += `<td>${v!=null?fmt(v,m.key):'<span class="null-val">—</span>'}</td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table></div>';
+  area.innerHTML = html;
+}
+
+function addSnap() {
+  if (snaps.length >= 6) return;
+  snapId++;
+  snaps.push({ id: snapId, month: 0, year: 2025 });
+  renderSnaps(); renderSnapTable();
+}
+function removeSnap(id) { snaps = snaps.filter(s=>s.id!==id); renderSnaps(); renderSnapTable(); }
+function clearSnaps()    { snaps = []; renderSnaps(); renderSnapTable(); }
+function updateSnap(id, field, val) {
+  const s = snaps.find(s=>s.id===id);
+  if (s) { s[field]=val; renderSnaps(); renderSnapTable(); }
+}
+function renderSnaps() {
+  const wrap = document.getElementById('snapRows');
+  wrap.innerHTML = '';
+  snaps.forEach((snap,idx) => {
+    const c = YR_COLORS[snap.year] || '#888';
+    const row = document.createElement('div');
+    row.className = 'snap-row';
+    row.innerHTML = `
+      <span class="snap-pill" style="background:${c}">Snapshot ${idx+1}</span>
+      <div class="snap-sels">
+        <select onchange="updateSnap(${snap.id},'month',parseInt(this.value))">
+          ${MONTHS_F.map((m,i)=>`<option value="${i}"${i===snap.month?' selected':''}>${m}</option>`).join('')}
+        </select>
+        <select onchange="updateSnap(${snap.id},'year',parseInt(this.value))">
+          ${YEARS.map(y=>`<option value="${y}"${y===snap.year?' selected':''}>${y}</option>`).join('')}
+        </select>
+      </div>
+      <button class="btn-rm" onclick="removeSnap(${snap.id})" title="Remove">×</button>`;
+    wrap.appendChild(row);
+  });
+  document.getElementById('addBtn').disabled = snaps.length >= 6;
+}
+function snapVal(snap, plt) {
+  const pk = plt === 'all' ? 'all' : plt;
+  return DATA.monthly[snap.year]?.[snap.month]?.[pk]?.[metric] ?? null;
+}
+function renderSnapTable() {
+  const area = document.getElementById('snapArea');
+  if (!snaps.length) {
+    area.innerHTML = '<div class="empty-state">Add snapshots above to compare specific months and years.</div>';
+    return;
+  }
+  const platforms = metric === 'aud'
+    ? [{ key:'all',label:'All Platforms' }]
+    : [{ key:'all',label:'All Platforms' },{ key:'x',label:'X' },{ key:'fb',label:'Facebook' },{ key:'li',label:'LinkedIn' }];
+  let html = `<div class="snap-tbl-wrap"><table class="snap-tbl">
+    <thead><tr><th>Snapshot</th>${platforms.map(p=>`<th>${p.label}</th>`).join('')}</tr></thead>
+    <tbody>`;
+  snaps.forEach((snap,idx) => {
+    const c = YR_COLORS[snap.year] || '#888';
+    html += `<tr><td><div class="snap-info">
+      <span class="snap-pill" style="background:${c}">Snapshot ${idx+1}</span>
+      <span class="snap-lbl">${MONTHS_F[snap.month]} ${snap.year}</span>
+    </div></td>`;
+    platforms.forEach(p => {
+      const v = snapVal(snap, p.key);
+      html += `<td>${v!=null?fmt(v,metric):'<span class="null-val">no data</span>'}</td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table></div>';
+  area.innerHTML = html;
+}
+
+function segInit(id, attr, cb) {
+  document.getElementById(id).querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.getElementById(id).querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      cb(btn.dataset[attr]);
+      updateAll();
+    });
+  });
+}
+segInit('metricSeg',  'm', v => { metric   = v; });
+segInit('granSeg',    'g', v => { gran     = v; });
+segInit('viewSeg',    'v', v => { viewMode = v; });
+segInit('platSeg',    'p', v => { platform = v; });
+
+function updateAll() { renderCards(); buildChart(); renderSnapTable(); }
+
+const _note = document.getElementById('lastDateNote');
+if (_note && window.DASHBOARD_DATA?.meta?.lastDate) {
+  _note.textContent = 'Data current through ' + window.DASHBOARD_DATA.meta.lastDate + '.';
+}
+renderYrToggles();
+buildPtPeriodOptions();
+renderPeriodTable();
+renderSnaps();
+renderSnapTable();
+updateAll();
+</script>
+</body>
+</html>
