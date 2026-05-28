@@ -92,10 +92,8 @@ select:focus{outline:none;border-color:var(--maroon);box-shadow:0 0 0 2px rgba(1
 /* Impression type toggle */
 .imp-toggle-wrap{display:flex;align-items:center;gap:.75rem;margin-bottom:.85rem;flex-wrap:wrap}
 .imp-toggle-wrap .clabel{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mid);white-space:nowrap}
-.imp-toggle-wrap .seg button.organic-active{background:var(--white);color:#1a8c65;font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.12)}
-.imp-toggle-wrap .seg button.paid-active{background:var(--white);color:#185FA5;font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.12)}
-.imp-toggle-wrap .seg button.total-active{background:var(--white);color:var(--dark);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.12)}
-.imp-toggle-wrap .seg button:disabled{opacity:.35;cursor:not-allowed}
+.imptbtn{padding:5px 13px;border:2px solid var(--border);border-radius:7px;font-size:13px;font-family:inherit;cursor:pointer;transition:all .12s;font-weight:600;background:transparent;color:var(--mid)}
+.imptbtn:disabled{opacity:.35;cursor:not-allowed}
 .imp-toggle-note{font-size:11px;color:var(--mid);font-style:italic}
 footer p{margin-top:3px}
 @media(max-width:640px){main{padding:1rem} .seg button{padding:5px 8px;font-size:12px} .yrbtn{padding:4px 10px;font-size:12px} .chart-wrap{height:240px}}
@@ -223,7 +221,7 @@ let gran     = 'monthly';
 let viewMode = 'timeline';
 let platform = 'all';
 let impType  = 'total'; // 'total' | 'organic' | 'paid' — only applies when metric=imp and platform=fb
-let activeYears = new Set([2025,2024,2023,2022]);
+let activeYears = new Set([2026,2025,2024,2023,2022]);
 let snaps = [], snapId = 0;
 let chart = null;
 
@@ -637,32 +635,51 @@ function renderSnapTable() {
 }
 
 // ── IMPRESSION TYPE TOGGLE ────────────────────────────────────────────────────
+const IMP_TYPE_COLORS = { total: '#2D6A4F', organic: '#E9C830', paid: '#5B2D8E' };
+
 function renderImpToggle() {
   const area = document.getElementById('impToggleArea');
   const show = metric === 'imp' && platform === 'fb';
   if (!show) { area.innerHTML = ''; return; }
 
   const types = [
-    { key: 'total',   label: 'Total',   activeClass: 'total-active',   title: 'All impressions (paid + organic)' },
-    { key: 'organic', label: 'Organic', activeClass: 'organic-active', title: 'Organic impressions only' },
-    { key: 'paid',    label: 'Paid',    activeClass: 'paid-active',    title: 'Paid impressions only' },
+    { key: 'total',   label: 'Total',   title: 'All impressions (paid + organic)' },
+    { key: 'organic', label: 'Organic', title: 'Organic impressions only' },
+    { key: 'paid',    label: 'Paid',    title: 'Paid impressions only' },
   ];
+
+  const btns = types.map(t => {
+    const on = impType === t.key;
+    const c  = IMP_TYPE_COLORS[t.key];
+    const textColor = t.key === 'organic' ? '#333' : '#fff'; // dark text on yellow
+    return `<button class="imptbtn" data-it="${t.key}" title="${t.title}"
+      style="border-color:${on ? c : 'rgba(64,64,65,0.15)'};
+             background:${on ? c : 'transparent'};
+             color:${on ? textColor : '#888'}"
+    >${t.label}</button>`;
+  }).join('');
 
   area.innerHTML = `<div class="imp-toggle-wrap">
     <span class="clabel">Impressions</span>
-    <div class="seg" id="impTypeSeg">
-      ${types.map(t => `<button data-it="${t.key}" title="${t.title}" class="${impType===t.key?t.activeClass:''}">${t.label}</button>`).join('')}
-    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">${btns}</div>
     <span class="imp-toggle-note">Facebook only &mdash; organic vs. paid split available Jun 2024 &ndash; Nov 2024</span>
   </div>`;
 
-  document.getElementById('impTypeSeg').querySelectorAll('button').forEach(btn => {
+  area.querySelectorAll('.imptbtn').forEach(btn => {
+    const c  = IMP_TYPE_COLORS[btn.dataset.it];
+    const textColor = btn.dataset.it === 'organic' ? '#333' : '#fff';
     btn.addEventListener('click', () => {
       impType = btn.dataset.it;
       renderImpToggle();
       buildChart();
       renderCards();
       renderSnapTable();
+    });
+    btn.addEventListener('mouseenter', () => {
+      if (impType !== btn.dataset.it) { btn.style.borderColor = c; btn.style.color = c; }
+    });
+    btn.addEventListener('mouseleave', () => {
+      if (impType !== btn.dataset.it) { btn.style.borderColor = 'rgba(64,64,65,0.15)'; btn.style.color = '#888'; }
     });
   });
 }
