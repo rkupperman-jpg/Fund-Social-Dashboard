@@ -97,6 +97,9 @@ select:focus{outline:none;border-color:var(--maroon);box-shadow:0 0 0 2px rgba(1
 .imptbtn{padding:5px 13px;border:2px solid var(--border);border-radius:7px;font-size:13px;font-family:inherit;cursor:pointer;transition:all .12s;font-weight:600;background:transparent;color:var(--mid)}
 .imptbtn:disabled{opacity:.35;cursor:not-allowed}
 .imp-toggle-note{font-size:11px;color:var(--mid);font-style:italic}
+/* Snapshot granularity selector */
+.snap-gran-wrap{display:flex;align-items:center;gap:.75rem;margin-bottom:1rem;flex-wrap:wrap}
+.snap-gran-wrap .clabel{min-width:auto}
 /* Snapshot metric badge */
 .snap-metric-badge{
   display:inline-block;
@@ -201,7 +204,16 @@ footer p{margin-top:3px}
 <!-- Snapshot Comparison -->
 <div class="panel">
   <div class="sec-title">Snapshot Comparison</div>
-  <div class="sec-desc">Compare any combination of months and years side by side across all platforms for <span id="snapMetricBadge" class="snap-metric-badge">Impressions</span>.</div>
+  <div class="sec-desc">Compare any combination of periods side by side across all platforms for <span id="snapMetricBadge" class="snap-metric-badge">Impressions</span>.</div>
+  <div class="snap-gran-wrap">
+    <span class="clabel">Granularity</span>
+    <div class="seg" id="snapGranSeg">
+      <button data-sg="weekly">Week</button>
+      <button class="active" data-sg="monthly">Month</button>
+      <button data-sg="quarterly">Quarter</button>
+      <button data-sg="annual">Year</button>
+    </div>
+  </div>
   <div class="snap-rows" id="snapRows"></div>
   <div class="add-row">
     <button class="btn btn-p" id="addBtn" onclick="addSnap()">+ Add Snapshot</button>
@@ -595,66 +607,125 @@ function renderPeriodTable() {
 }
 
 // ── SNAPSHOT COMPARISON ───────────────────────────────────────────────────
+let snapGran = 'monthly'; // 'weekly' | 'monthly' | 'quarterly' | 'annual'
+
+// Default snap state per granularity
+function defaultSnap() {
+  if (snapGran === 'weekly')    return { id: ++snapId, gran: 'weekly',    weekIdx: DATA.weekly.length - 1 };
+  if (snapGran === 'monthly')   return { id: ++snapId, gran: 'monthly',   month: 0, year: 2025 };
+  if (snapGran === 'quarterly') return { id: ++snapId, gran: 'quarterly', quarter: 1, year: 2025 };
+  /* annual */                  return { id: ++snapId, gran: 'annual',    year: 2025 };
+}
+
 function addSnap() {
   if (snaps.length >= 6) return;
-  snapId++;
-  snaps.push({ id: snapId, month: 0, year: 2025 });
+  snaps.push(defaultSnap());
   renderSnaps(); renderSnapTable();
 }
 function removeSnap(id) { snaps = snaps.filter(s=>s.id!==id); renderSnaps(); renderSnapTable(); }
 function clearSnaps()    { snaps = []; renderSnaps(); renderSnapTable(); }
 function updateSnap(id, field, val) {
   const s = snaps.find(s=>s.id===id);
-  if (s) { s[field]=val; renderSnaps(); renderSnapTable(); }
+  if (s) { s[field] = val; renderSnaps(); renderSnapTable(); }
 }
+
+// Build the period selectors inside a snap row based on current snapGran
+function snapSelectors(snap) {
+  if (snapGran === 'weekly') {
+    const opts = DATA.weekly.slice().reverse().map((w, ri) => {
+      const idx = DATA.weekly.length - 1 - ri;
+      return `<option value="${idx}"${idx === snap.weekIdx ? ' selected' : ''}>${w.label}</option>`;
+    }).join('');
+    return `<select onchange="updateSnap(${snap.id},'weekIdx',parseInt(this.value))">${opts}</select>`;
+  }
+  if (snapGran === 'monthly') {
+    const moOpts = MONTHS_F.map((m,i) => `<option value="${i}"${i===snap.month?' selected':''}>${m}</option>`).join('');
+    const yrOpts = YEARS.map(y => `<option value="${y}"${y===snap.year?' selected':''}>${y}</option>`).join('');
+    return `<select onchange="updateSnap(${snap.id},'month',parseInt(this.value))">${moOpts}</select>
+            <select onchange="updateSnap(${snap.id},'year',parseInt(this.value))">${yrOpts}</select>`;
+  }
+  if (snapGran === 'quarterly') {
+    const qOpts = [1,2,3,4].map(q => `<option value="${q}"${q===snap.quarter?' selected':''}>Q${q}</option>`).join('');
+    const yrOpts = YEARS.map(y => `<option value="${y}"${y===snap.year?' selected':''}>${y}</option>`).join('');
+    return `<select onchange="updateSnap(${snap.id},'quarter',parseInt(this.value))">${qOpts}</select>
+            <select onchange="updateSnap(${snap.id},'year',parseInt(this.value))">${yrOpts}</select>`;
+  }
+  // annual — year only
+  const yrOpts = YEARS.map(y => `<option value="${y}"${y===snap.year?' selected':''}>${y}</option>`).join('');
+  return `<select onchange="updateSnap(${snap.id},'year',parseInt(this.value))">${yrOpts}</select>`;
+}
+
+// Human-readable label for a snap row
+function snapLabel(snap) {
+  if (snapGran === 'weekly') {
+    return DATA.weekly[snap.weekIdx]?.label ?? '—';
+  }
+  if (snapGran === 'monthly')   return `${MONTHS_F[snap.month]} ${snap.year}`;
+  if (snapGran === 'quarterly') return `Q${snap.quarter} ${snap.year}`;
+  return String(snap.year);
+}
+
+// Year used for the colour pill
+function snapYear(snap) {
+  if (snapGran === 'weekly') return DATA.weekly[snap.weekIdx]?.wy ?? snap.year;
+  return snap.year;
+}
+
 function renderSnaps() {
   const wrap = document.getElementById('snapRows');
   wrap.innerHTML = '';
-  snaps.forEach((snap,idx) => {
-    const c = YR_COLORS[snap.year] || '#888';
+  snaps.forEach((snap, idx) => {
+    const yr = snapYear(snap);
+    const c  = YR_COLORS[yr] || '#888';
     const row = document.createElement('div');
     row.className = 'snap-row';
     row.innerHTML = `
       <span class="snap-pill" style="background:${c}">Snapshot ${idx+1}</span>
-      <div class="snap-sels">
-        <select onchange="updateSnap(${snap.id},'month',parseInt(this.value))">
-          ${MONTHS_F.map((m,i)=>`<option value="${i}"${i===snap.month?' selected':''}>${m}</option>`).join('')}
-        </select>
-        <select onchange="updateSnap(${snap.id},'year',parseInt(this.value))">
-          ${YEARS.map(y=>`<option value="${y}"${y===snap.year?' selected':''}>${y}</option>`).join('')}
-        </select>
-      </div>
+      <div class="snap-sels">${snapSelectors(snap)}</div>
       <button class="btn-rm" onclick="removeSnap(${snap.id})" title="Remove">×</button>`;
     wrap.appendChild(row);
   });
   document.getElementById('addBtn').disabled = snaps.length >= 6;
 }
+
 function snapVal(snap, plt) {
   const pk = plt === 'all' ? 'all' : plt;
   const mk = resolvedMetric(metric, pk);
-  return DATA.monthly[snap.year]?.[snap.month]?.[pk]?.[mk] ?? null;
+  if (snapGran === 'weekly') {
+    return DATA.weekly[snap.weekIdx]?.[pk]?.[mk] ?? null;
+  }
+  if (snapGran === 'monthly') {
+    return DATA.monthly[snap.year]?.[snap.month]?.[pk]?.[mk] ?? null;
+  }
+  if (snapGran === 'quarterly') {
+    return DATA.quarterly[snap.year]?.[snap.quarter]?.[pk]?.[mk] ?? null;
+  }
+  // annual
+  return DATA.annual[snap.year]?.[pk]?.[mk] ?? null;
 }
+
 function renderSnapTable() {
   const area = document.getElementById('snapArea');
   if (!snaps.length) {
-    area.innerHTML = '<div class="empty-state">Add snapshots above to compare specific months and years.</div>';
+    area.innerHTML = '<div class="empty-state">Add snapshots above to compare specific periods.</div>';
     return;
   }
   const platforms = metric === 'aud'
-    ? [{ key:'all',label:'All Platforms' }]
-    : [{ key:'all',label:'All Platforms' },{ key:'x',label:'X' },{ key:'fb',label:'Facebook' },{ key:'li',label:'LinkedIn' }];
+    ? [{ key:'all', label:'All Platforms' }]
+    : [{ key:'all', label:'All Platforms' }, { key:'x', label:'X' }, { key:'fb', label:'Facebook' }, { key:'li', label:'LinkedIn' }];
   let html = `<div class="snap-tbl-wrap"><table class="snap-tbl">
     <thead><tr><th>Snapshot</th>${platforms.map(p=>`<th>${p.label}</th>`).join('')}</tr></thead>
     <tbody>`;
-  snaps.forEach((snap,idx) => {
-    const c = YR_COLORS[snap.year] || '#888';
+  snaps.forEach((snap, idx) => {
+    const yr = snapYear(snap);
+    const c  = YR_COLORS[yr] || '#888';
     html += `<tr><td><div class="snap-info">
       <span class="snap-pill" style="background:${c}">Snapshot ${idx+1}</span>
-      <span class="snap-lbl">${MONTHS_F[snap.month]} ${snap.year}</span>
+      <span class="snap-lbl">${snapLabel(snap)}</span>
     </div></td>`;
     platforms.forEach(p => {
       const v = snapVal(snap, p.key);
-      html += `<td>${v!=null?fmt(v,metric):'<span class="null-val">no data</span>'}</td>`;
+      html += `<td>${v!=null ? fmt(v,metric) : '<span class="null-val">no data</span>'}</td>`;
     });
     html += '</tr>';
   });
@@ -734,6 +805,18 @@ function segInit(id, attr, cb) {
 segInit('metricSeg',  'm', v => { metric   = v; if (v !== 'imp') impType = 'total'; });
 segInit('granSeg',    'g', v => { gran     = v; });
 segInit('viewSeg',    'v', v => { viewMode = v; });
+
+// Snapshot granularity buttons
+document.getElementById('snapGranSeg').querySelectorAll('button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.getElementById('snapGranSeg').querySelectorAll('button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    snapGran = btn.dataset.sg;
+    snaps = []; // clear existing snaps when granularity changes
+    renderSnaps();
+    renderSnapTable();
+  });
+});
 
 // Platform buttons — colored like year toggles
 document.querySelectorAll('.platbtn').forEach(btn => {
