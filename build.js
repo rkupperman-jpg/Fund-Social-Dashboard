@@ -204,6 +204,11 @@ function buildOrgData(allRows, fbPaidMap) {
     if (aud !== null) slot.audSamples.push(aud);
   }
 
+  // Tracks the most recent non-null audience per platform across all dates.
+  // Used to fill gaps (e.g. LinkedIn NaN on Aug 30–Sep 2 2025) so the 'all'
+  // aggregate doesn't collapse when one platform is temporarily missing.
+  const lastKnownAud = { x: null, fb: null, li: null };
+
   const sortedDates = Object.keys(daily).sort((a, b) => {
     const [ma, da, ya] = a.split('-').map(Number);
     const [mb, db, yb] = b.split('-').map(Number);
@@ -250,7 +255,8 @@ function buildOrgData(allRows, fbPaidMap) {
       addDay(weeklyMap[wKey][plt], imp, eng, rate, aud, impOrganic, impPaid);
       allDay.imp += imp; allDay.eng += eng;
       if (rate !== null) allDay.rates.push({ r: rate, w: imp > 0 ? imp : 1 });
-      if (aud  !== null) allDay.auds.push(aud);
+      // Update last known audience for this platform (used for 'all' sum below)
+      if (aud !== null) lastKnownAud[plt] = aud;
     }
 
     const allRN = allDay.rates.reduce((s, x) => s + x.r * x.w, 0);
@@ -260,25 +266,33 @@ function buildOrgData(allRows, fbPaidMap) {
     monthly[syr][smo]['all'].eng        += allDay.eng;
     monthly[syr][smo]['all'].rateNumer  += allRN;
     monthly[syr][smo]['all'].rateDenom  += allRD;
-    allDay.auds.forEach(a => monthly[syr][smo]['all'].audSamples.push(a));
 
     quarterly[syr][sq]['all'].imp       += allDay.imp;
     quarterly[syr][sq]['all'].eng       += allDay.eng;
     quarterly[syr][sq]['all'].rateNumer += allRN;
     quarterly[syr][sq]['all'].rateDenom += allRD;
-    allDay.auds.forEach(a => quarterly[syr][sq]['all'].audSamples.push(a));
 
     annual[syr]['all'].imp              += allDay.imp;
     annual[syr]['all'].eng              += allDay.eng;
     annual[syr]['all'].rateNumer        += allRN;
     annual[syr]['all'].rateDenom        += allRD;
-    allDay.auds.forEach(a => annual[syr]['all'].audSamples.push(a));
 
     weeklyMap[wKey]['all'].imp          += allDay.imp;
     weeklyMap[wKey]['all'].eng          += allDay.eng;
     weeklyMap[wKey]['all'].rateNumer    += allRN;
     weeklyMap[wKey]['all'].rateDenom    += allRD;
-    allDay.auds.forEach(a => weeklyMap[wKey]['all'].audSamples.push(a));
+
+    // Push a single summed audience sample for 'all', using each platform's
+    // last known value to fill any gaps (e.g. LinkedIn NaN days). This prevents
+    // a temporarily-missing platform from collapsing the aggregate total.
+    const knownPlts = PLTS.filter(p => lastKnownAud[p] !== null);
+    if (knownPlts.length > 0) {
+      const audSum = knownPlts.reduce((s, p) => s + lastKnownAud[p], 0);
+      monthly[syr][smo]['all'].audSamples.push(audSum);
+      quarterly[syr][sq]['all'].audSamples.push(audSum);
+      annual[syr]['all'].audSamples.push(audSum);
+      weeklyMap[wKey]['all'].audSamples.push(audSum);
+    }
 
     weeklyMap[wKey].endDate = sampleDate;
   }
