@@ -97,6 +97,19 @@ select:focus{outline:none;border-color:var(--maroon);box-shadow:0 0 0 2px rgba(1
 .imptbtn{padding:5px 13px;border:2px solid var(--border);border-radius:7px;font-size:13px;font-family:inherit;cursor:pointer;transition:all .12s;font-weight:600;background:transparent;color:var(--mid)}
 .imptbtn:disabled{opacity:.35;cursor:not-allowed}
 .imp-toggle-note{font-size:11px;color:var(--mid);font-style:italic}
+/* Snapshot metric badge */
+.snap-metric-badge{
+  display:inline-block;
+  padding:1px 9px;
+  border-radius:20px;
+  font-size:12px;
+  font-weight:700;
+  letter-spacing:.04em;
+  background:var(--maroon);
+  color:var(--white);
+  vertical-align:middle;
+  margin:0 1px;
+}
 footer p{margin-top:3px}
 @media(max-width:640px){main{padding:1rem} .seg button{padding:5px 8px;font-size:12px} .yrbtn{padding:4px 10px;font-size:12px} .chart-wrap{height:240px}}
 </style>
@@ -188,7 +201,7 @@ footer p{margin-top:3px}
 <!-- Snapshot Comparison -->
 <div class="panel">
   <div class="sec-title">Snapshot Comparison</div>
-  <div class="sec-desc">Compare any combination of months and years side by side across all platforms for the current metric.</div>
+  <div class="sec-desc">Compare any combination of months and years side by side across all platforms for <span id="snapMetricBadge" class="snap-metric-badge">Impressions</span>.</div>
   <div class="snap-rows" id="snapRows"></div>
   <div class="add-row">
     <button class="btn btn-p" id="addBtn" onclick="addSnap()">+ Add Snapshot</button>
@@ -300,12 +313,11 @@ function renderYrToggles() {
     btn.addEventListener('click', () => {
       if (activeYears.has(yr)) { if (activeYears.size > 1) activeYears.delete(yr); }
       else activeYears.add(yr);
-      // Update footer with last data date from build metadata
-const _note = document.getElementById('lastDateNote');
-if (_note && window.DASHBOARD_DATA?.meta?.lastDate) {
-  _note.textContent = 'Data current through ' + window.DASHBOARD_DATA.meta.lastDate + '.';
-}
-renderYrToggles(); updateAll();
+      const _note = document.getElementById('lastDateNote');
+      if (_note && window.DASHBOARD_DATA?.meta?.lastDate) {
+        _note.textContent = 'Data current through ' + window.DASHBOARD_DATA.meta.lastDate + '.';
+      }
+      renderYrToggles(); updateAll();
     });
     btn.addEventListener('mouseenter', () => { if (!activeYears.has(yr)) { btn.style.borderColor=c; btn.style.color=c; } else { btn.style.background='var(--burgundy)'; btn.style.borderColor='var(--burgundy)'; }});
     btn.addEventListener('mouseleave', () => { if (!activeYears.has(yr)) { btn.style.borderColor='rgba(64,64,65,0.15)'; btn.style.color='#888'; } else { btn.style.background=c; btn.style.borderColor=c; }});
@@ -702,6 +714,12 @@ function renderImpToggle() {
   });
 }
 
+// ── SNAPSHOT METRIC BADGE ─────────────────────────────────────────────────────
+function updateSnapMetricBadge() {
+  const badge = document.getElementById('snapMetricBadge');
+  if (badge) badge.textContent = METRIC_LABELS[metric];
+}
+
 // ── WIRE UP ────────────────────────────────────────────────────────────────
 function segInit(id, attr, cb) {
   document.getElementById(id).querySelectorAll('button').forEach(btn => {
@@ -737,10 +755,15 @@ document.querySelectorAll('.platbtn').forEach(btn => {
   });
 });
 
-function updateAll() { renderImpToggle(); renderCards(); buildChart(); renderSnapTable(); }
+function updateAll() {
+  renderImpToggle();
+  renderCards();
+  buildChart();
+  renderSnapTable();
+  updateSnapMetricBadge();
+}
 
 // ── INIT ───────────────────────────────────────────────────────────────────
-// Update footer with last data date from build metadata
 const _note = document.getElementById('lastDateNote');
 if (_note && window.DASHBOARD_DATA?.meta?.lastDate) {
   _note.textContent = 'Data current through ' + window.DASHBOARD_DATA.meta.lastDate + '.';
