@@ -36,11 +36,14 @@
 
     /* Platform tabs */
     .platform-tabs{display:flex;background:var(--white);border:1px solid var(--border);border-radius:10px;padding:5px;margin-bottom:18px;box-shadow:0 1px 4px rgba(0,0,0,.05)}
-    .ptab{flex:1;padding:9px 16px;border-radius:7px;border:none;background:transparent;color:var(--mid);font-family:var(--font);font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:all .15s}
-    .ptab:hover:not(.ptab-active){background:#f5f2ed;color:var(--dark)}
-    .ptab-active-li{background:#e8f0fb;color:var(--li-blue)}
-    .ptab-active-x{background:#f0f0f0;color:var(--x-dark)}
-    .ptab-active-combined{background:#ede8f7;color:var(--combined)}
+    .ptab{flex:1;padding:9px 16px;border-radius:7px;border:none;background:transparent;color:var(--mid);font-family:var(--font);font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:all .18s}
+    .ptab:hover:not([class*="ptab-active"]){background:#f0ede7;color:var(--dark);transform:translateY(-1px);box-shadow:0 2px 6px rgba(0,0,0,.08)}
+    .ptab-active-li{background:var(--li-blue);color:#fff;box-shadow:0 2px 8px rgba(10,102,194,.35)}
+    .ptab-active-li:hover{background:#0858a8;color:#fff}
+    .ptab-active-x{background:#2D2D2D;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+    .ptab-active-x:hover{background:#1a1a1a;color:#fff}
+    .ptab-active-combined{background:var(--combined);color:#fff;box-shadow:0 2px 8px rgba(91,63,166,.35)}
+    .ptab-active-combined:hover{background:#4a3190;color:#fff}
 
     /* Profile hero */
     .hero{display:flex;align-items:center;gap:18px}
@@ -100,32 +103,24 @@
 
     /* Post cards */
     .post-feed{display:flex;flex-direction:column;gap:.75rem}
-    .post-card{background:var(--white);border:1px solid var(--border);border-left:4px solid var(--maroon);border-radius:8px;padding:14px 16px;transition:box-shadow .12s}
-    .post-card:hover{box-shadow:0 2px 8px rgba(0,0,0,.1)}
-    .post-card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px}
-    .post-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-    .post-date{font-size:12px;color:var(--mid);font-weight:500}
-    .ctype-badge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;text-transform:uppercase;letter-spacing:.04em}
-    .eng-pill{font-size:13px;font-weight:700;color:var(--maroon);white-space:nowrap;flex-shrink:0}
-    .post-text{font-size:13px;color:var(--dark);line-height:1.6;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;cursor:pointer;transition:color .12s;margin-bottom:10px}
-    .post-text.expanded{display:block;-webkit-line-clamp:unset}
-    .post-text:hover{color:var(--maroon)}
-    .post-footer{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
-    .post-stats{display:flex;gap:14px;flex-wrap:wrap}
-    .stat{font-size:12px;color:var(--mid);display:flex;align-items:center;gap:4px}
-    .stat strong{color:var(--dark)}
-    .view-link{font-size:12px;color:var(--maroon);font-weight:600;display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
-    .view-link svg{width:12px;height:12px;flex-shrink:0}
+    .post-card{background:var(--white);border:1px solid var(--border);border-left:4px solid var(--maroon);border-radius:8px;overflow:hidden;transition:box-shadow .15s}
+    .post-card:hover{box-shadow:0 3px 12px rgba(0,0,0,.09)}
+    .post-header{display:flex;align-items:center;justify-content:space-between;padding:.75rem 1rem .5rem;gap:1rem;flex-wrap:wrap}
+    .post-date{font-size:12px;color:var(--mid);white-space:nowrap;font-weight:500}
+    .ctype-badge{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--mid);background:var(--light);border:1px solid var(--border);padding:2px 7px;border-radius:10px}
+    .post-metrics{display:flex;gap:.5rem;flex-wrap:wrap}
+    .metric-pill{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;color:var(--dark);background:var(--light);padding:3px 9px;border-radius:20px;border:1px solid var(--border)}
+    .metric-pill.highlight{background:#FEF9EC;border-color:#DAC99B;color:var(--maroon)}
+    .metric-pill svg{flex-shrink:0;opacity:.7}
+    .post-body{padding:.25rem 1rem .75rem}
+    .post-text{font-size:13.5px;line-height:1.6;color:var(--dark);white-space:pre-wrap;word-break:break-word;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+    .post-text.expanded{display:block;overflow:visible}
+    .post-footer{padding:.5rem 1rem .75rem;display:flex;align-items:center;justify-content:space-between;gap:.75rem;border-top:1px solid var(--border);background:rgba(247,245,242,.6)}
+    .expand-btn{background:none;border:none;cursor:pointer;font-size:12px;color:var(--maroon);font-family:inherit;font-weight:600;padding:0}
+    .expand-btn:hover{text-decoration:underline}
+    .view-link{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#0A66C2;font-weight:600;text-decoration:none}
     .view-link:hover{text-decoration:underline}
-
-    /* Content type badge colours */
-    .ct-photo{background:#FEF3C7;color:#92400E}
-    .ct-text{background:#EDE9FE;color:#5B21B6}
-    .ct-video{background:#DCFCE7;color:#166534}
-    .ct-link{background:#DBEAFE;color:#1E40AF}
-    .ct-document{background:#FCE7F3;color:#9D174D}
-    .ct-default{background:#F3F4F6;color:#4B5563}
-
+    .view-link-x{color:var(--x-dark)}
     /* Pagination */
     .pagination{display:flex;align-items:center;justify-content:center;gap:.5rem;margin-top:1rem;flex-wrap:wrap}
     .page-btn{padding:5px 12px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-family:inherit;cursor:pointer;background:var(--white);color:var(--mid);transition:all .12s}
@@ -478,26 +473,37 @@ function renderFeed(platform) {
   if(countEl) countEl.textContent=total===allPosts.length?`${total} posts`:`${total} of ${allPosts.length} posts`;
   if(!slice.length){feedEl.innerHTML='<div class="empty-state">No posts match your filters.</div>';if(pagesEl)pagesEl.innerHTML='';return;}
 
-  feedEl.innerHTML=slice.map(p=>{
+  if (!window._expandedPosts) window._expandedPosts = new Set();
+  feedEl.innerHTML=slice.map((p,idx)=>{
     const eng=g(p,'eng')||0, reactions=g(p,'reactions')||0, comments=g(p,'comments')||0, shares=g(p,'shares')||0, imp=g(p,'imp')||0;
     const postText=p.post||'';
     const ct=p.contentType||'';
     const borderColor=YR_COLORS[p.date.slice(0,4)]||'#6B1E2E';
-    const stats=isLI
-      ?`<span class="stat">♥ <strong>${reactions}</strong></span><span class="stat">💬 <strong>${comments}</strong></span><span class="stat">↺ <strong>${shares}</strong></span>${imp?`<span class="stat">👁 <strong>${imp.toLocaleString()}</strong></span>`:''}`
-      :`<span class="stat">♥ <strong>${reactions}</strong></span><span class="stat">💬 <strong>${comments}</strong></span><span class="stat">↺ <strong>${shares}</strong></span>`;
-    const viewLink=p.link?`<a class="view-link" href="${escAttr(p.link)}" target="_blank" rel="noopener">View on ${isLI?'LinkedIn':'X'}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>`:'';
+    const needsTrunc=postText.length>200;
+    const uid=p.link||(p.date+String(start+idx));
+    const isExpanded=window._expandedPosts.has(uid);
+    const pills=[];
+    if(eng)       pills.push(`<span class="metric-pill highlight"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>${eng} eng</span>`);
+    if(reactions) pills.push(`<span class="metric-pill">👍 ${reactions}</span>`);
+    if(comments)  pills.push(`<span class="metric-pill">💬 ${comments}</span>`);
+    if(shares)    pills.push(`<span class="metric-pill">↺ ${shares}</span>`);
+    if(imp)       pills.push(`<span class="metric-pill">👁 ${imp.toLocaleString()}</span>`);
+    const liSvg=`<svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.064 2.064 0 1 1 2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>`;
+    const xSvg=`<svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>`;
+    const viewLink=p.link?`<a class="view-link${isLI?'':' view-link-x'}" href="${escAttr(p.link)}" target="_blank" rel="noopener">${isLI?liSvg:xSvg} View on ${isLI?'LinkedIn':'X'}</a>`:'<span></span>';
     return `<div class="post-card" style="border-left-color:${borderColor}">
-      <div class="post-card-top">
-        <div class="post-meta">
+      <div class="post-header">
+        <div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap">
           <span class="post-date">${p.date}</span>
-          <span class="ctype-badge ${ctClass(ct)}">${escHtml(ct)}</span>
+          <span class="ctype-badge">${escHtml(ct)}</span>
         </div>
-        <span class="eng-pill">${eng} eng</span>
+        <div class="post-metrics">${pills.join('')}</div>
       </div>
-      <div class="post-text" onclick="this.classList.toggle('expanded')">${escHtml(postText)}</div>
+      <div class="post-body">
+        <div class="post-text${isExpanded?' expanded':''}" id="pt-${start+idx}">${escHtml(postText)}</div>
+      </div>
       <div class="post-footer">
-        <div class="post-stats">${stats}</div>
+        ${needsTrunc?`<button class="expand-btn" onclick="togglePost('${escAttr(uid)}',${start+idx})" id="pb-${start+idx}">${isExpanded?'▲ Show less':'▼ Read more'}</button>`:'<span></span>'}
         ${viewLink}
       </div>
     </div>`;
@@ -505,23 +511,33 @@ function renderFeed(platform) {
 
   // Pagination
   if(pagesEl){
-    let ph=`<button class="page-btn" onclick="${isLI?'liPage':'xPage'}=${page-1};renderFeed('${platform}')" ${page<=1?'disabled':''}>‹ Prev</button>`;
+    let ph=`<button class="page-btn" onclick="${isLI?'liPage':'xPage'}=${page-1};renderFeed('${platform}')" ${page<=1?'disabled':''}>← Prev</button>`;
     const startP=Math.max(1,page-2), endP=Math.min(totalPages,page+2);
     if(startP>1) ph+=`<button class="page-btn" onclick="${isLI?'liPage':'xPage'}=1;renderFeed('${platform}')">1</button>${startP>2?'<span class="page-info">…</span>':''}`;
     for(let i=startP;i<=endP;i++) ph+=`<button class="page-btn${i===page?' active':''}" onclick="${isLI?'liPage':'xPage'}=${i};renderFeed('${platform}')">${i}</button>`;
     if(endP<totalPages) ph+=`${endP<totalPages-1?'<span class="page-info">…</span>':''}<button class="page-btn" onclick="${isLI?'liPage':'xPage'}=${totalPages};renderFeed('${platform}')">${totalPages}</button>`;
-    ph+=`<button class="page-btn" onclick="${isLI?'liPage':'xPage'}=${page+1};renderFeed('${platform}')" ${page>=totalPages?'disabled':''}>Next ›</button>`;
+    ph+=`<button class="page-btn" onclick="${isLI?'liPage':'xPage'}=${page+1};renderFeed('${platform}')" ${page>=totalPages?'disabled':''}>Next →</button>`;
     ph+=`<span class="page-info">${start+1}–${Math.min(start+PER_PAGE,total)} of ${total}</span>`;
     pagesEl.innerHTML=ph;
   }
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+function togglePost(uid, idx) {
+  const textEl=document.getElementById('pt-'+idx);
+  const btnEl =document.getElementById('pb-'+idx);
+  if(!textEl) return;
+  const expanded=textEl.classList.toggle('expanded');
+  if(btnEl) btnEl.textContent=expanded?'▲ Show less':'▼ Read more';
+  if(!window._expandedPosts) window._expandedPosts=new Set();
+  expanded?window._expandedPosts.add(uid):window._expandedPosts.delete(uid);
+}
+
 function fmt(n){if(n>=1000)return(n/1000).toFixed(1).replace(/\.0$/,'')+'K';return String(n);}
 function fmtMonth(str){const[y,m]=str.split('-');const N=['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];return N[parseInt(m)]+" '"+y.slice(2);}
 function fmtDate(s){const d=new Date(s);return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});}
 function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
-function escAttr(s){return String(s).replace(/"/g,'&quot;');}
+function escAttr(s){return String(s).replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+function makeBar(label,val,total,color){const pct=Math.round(val/total*100);return`<div class="bar-item"><div class="bar-label-row"><span class="bar-label">${label}</span><span class="bar-count">${val} (${pct}%)</span></div><div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${color}"></div></div></div>`;}
 </script>
 </body>
 </html>
