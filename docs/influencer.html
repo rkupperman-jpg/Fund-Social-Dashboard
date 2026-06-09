@@ -6,6 +6,7 @@
   <title>Heather Y. Anichini | Influencer Dashboard</title>
   <script src="influencer_data.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
     :root {
@@ -33,7 +34,7 @@
     .meta-pill{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--border);border-radius:20px;padding:3px 10px;font-size:12px;color:var(--muted)}
     .meta-dot{width:7px;height:7px;border-radius:50%;display:inline-block}
     .data-source-tag{margin-left:auto;font-size:11px;color:var(--muted-lt);font-style:italic;white-space:nowrap}
-    .platform-tabs{display:flex;gap:0;background:var(--card-bg);border:1px solid var(--border);border-radius:var(--radius);padding:5px;margin-bottom:24px;box-shadow:0 1px 4px rgba(0,0,0,0.05)}
+    .platform-tabs{display:flex;background:var(--card-bg);border:1px solid var(--border);border-radius:var(--radius);padding:5px;margin-bottom:24px;box-shadow:0 1px 4px rgba(0,0,0,0.05)}
     .ptab{flex:1;padding:9px 16px;border-radius:7px;border:none;background:transparent;color:var(--muted);font-family:var(--font);font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:all 0.15s}
     .ptab:hover:not(.ptab-active){background:#f5f2ed;color:var(--text)}
     .ptab-active-li{background:#e8f0fb;color:var(--li-blue)}
@@ -41,7 +42,7 @@
     .ptab-active-combined{background:#ede8f7;color:var(--combined)}
     .kpi-section{margin-bottom:20px}
     .kpi-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px}
-    .kpi-card{background:var(--card-bg);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;min-width:170px;flex:1;box-shadow:0 1px 4px rgba(0,0,0,0.05);border-top:3px solid transparent}
+    .kpi-card{background:var(--card-bg);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;min-width:160px;flex:1;box-shadow:0 1px 4px rgba(0,0,0,0.05);border-top:3px solid transparent}
     .kpi-year{font-size:11px;font-weight:700;letter-spacing:0.06em;margin-bottom:8px}
     .kpi-val{font-size:28px;font-weight:700;color:var(--text);line-height:1}
     .kpi-label{font-size:12px;color:var(--muted);margin-top:4px}
@@ -56,14 +57,13 @@
     .chart-card{background:var(--card-bg);border:1px solid var(--border);border-radius:var(--radius);padding:22px 24px;margin-bottom:20px;box-shadow:0 1px 4px rgba(0,0,0,0.05)}
     .chart-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px;flex-wrap:wrap;gap:10px}
     .chart-title{font-size:15px;font-weight:700;color:var(--text)}
-    .chart-sub{font-size:12px;color:var(--muted);margin-top:2px}
-    .chart-toggles{display:flex;gap:0;border:1px solid var(--border);border-radius:6px;overflow:hidden}
+    .chart-toggles{display:flex;border:1px solid var(--border);border-radius:6px;overflow:hidden}
     .ctoggle{padding:6px 14px;border:none;background:transparent;color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font);transition:all 0.15s;border-right:1px solid var(--border)}
     .ctoggle:last-child{border-right:none}
     .ctoggle:hover:not(.ctoggle-active){background:#f5f2ed}
     .ctoggle-active{background:var(--crimson);color:#fff}
     .chart-wrap{position:relative;height:260px}
-    .two-col{display:grid;grid-template-columns:1fr 300px;gap:16px;margin-bottom:20px}
+    .two-col{display:grid;grid-template-columns:1fr 280px;gap:16px;margin-bottom:20px}
     .breakdown-stack{display:flex;flex-direction:column;gap:12px}
     .breakdown-card{background:var(--card-bg);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;flex:1;box-shadow:0 1px 4px rgba(0,0,0,0.04)}
     .breakdown-title{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:12px}
@@ -154,74 +154,75 @@
 </div>
 
 <script>
-// ─── Pull data from window.INFLUENCER_DATA (built by build.js) ───────────────
+// ─── Read from window.INFLUENCER_DATA (written by build.js) ──────────────────
+// build.js field names: date, network, post, contentType, imp, eng,
+//                       reactions, comments, shares, rate, tags, link
 const raw = window.INFLUENCER_DATA || null;
 
-// Split posts by network
-const LI_FEED = raw ? raw.posts.filter(p => p.network === 'LinkedIn')
-                          .sort((a,b) => b.date.localeCompare(a.date)) : [];
-const X_FEED  = raw ? raw.posts.filter(p => p.network === 'X')
-                          .sort((a,b) => b.date.localeCompare(a.date)) : [];
-
-// Build monthly arrays per platform
-function monthlyForPlatform(feed) {
-  const map = {};
-  feed.forEach(p => {
-    const key = p.date.slice(0,7);
-    if (!map[key]) map[key] = {month:key, posts:0, engagements:0, reactions:0, comments:0, shares:0, likes:0, impressions:0};
-    map[key].posts++;
-    map[key].engagements += p.eng       || 0;
-    map[key].reactions   += p.reactions || 0;
-    map[key].comments    += p.comments  || 0;
-    map[key].shares      += p.shares    || 0;
-    map[key].likes       += p.reactions || 0; // X uses reactions col as likes
-    map[key].impressions += p.imp       || 0;
-  });
-  return Object.values(map)
-    .sort((a,b) => a.month.localeCompare(b.month))
-    .map(m => ({...m, avgEng: m.posts ? Math.round(m.engagements/m.posts*10)/10 : 0}));
+function getField(p, ...keys) {
+  for (const k of keys) { if (p[k] !== undefined && p[k] !== null) return p[k]; }
+  return null;
 }
 
+// Split by network, sorted newest first
+const LI_FEED = raw ? raw.posts
+  .filter(p => p.network === 'LinkedIn')
+  .sort((a,b) => b.date.localeCompare(a.date)) : [];
+const X_FEED = raw ? raw.posts
+  .filter(p => p.network === 'X')
+  .sort((a,b) => b.date.localeCompare(a.date)) : [];
+
+// ─── Compute per-year stats directly from individual posts ────────────────────
 function yearsForPlatform(feed) {
   const map = {};
   feed.forEach(p => {
     const yr = p.date.slice(0,4);
-    if (!map[yr]) map[yr] = {year:parseInt(yr), posts:0, totalEng:0, impressions:0};
+    if (!map[yr]) map[yr] = { year: parseInt(yr), posts: 0, totalEng: 0, totalImp: 0 };
     map[yr].posts++;
-    map[yr].totalEng    += p.eng || 0;
-    map[yr].impressions += p.imp || 0;
+    map[yr].totalEng += getField(p,'eng') || 0;
+    map[yr].totalImp += getField(p,'imp') || 0;
   });
   const years = Object.values(map).sort((a,b) => b.year - a.year);
-  years.forEach((y,i) => {
-    y.avgEng = y.posts ? Math.round(y.totalEng/y.posts*10)/10 : 0;
+  years.forEach((y, i) => {
+    y.avgEng = y.posts ? Math.round(y.totalEng / y.posts * 10) / 10 : 0;
     const prev = years[i+1];
     if (prev && prev.avgEng > 0) {
-      const pct = ((y.avgEng - prev.avgEng)/prev.avgEng*100).toFixed(1);
+      const pct = ((y.avgEng - prev.avgEng) / prev.avgEng * 100).toFixed(1);
       y.deltaLabel = Math.abs(pct) + '% vs ' + prev.year;
-      y.deltaDir   = pct >= 0 ? 'up' : 'down';
+      y.deltaDir = pct >= 0 ? 'up' : 'down';
     } else { y.deltaLabel = ''; y.deltaDir = ''; }
   });
   return years;
 }
 
-const LI_MONTHLY = monthlyForPlatform(LI_FEED);
-const X_MONTHLY  = monthlyForPlatform(X_FEED);
+// ─── Monthly totals (for Monthly Total chart toggle) ─────────────────────────
+function monthlyForPlatform(feed) {
+  const map = {};
+  feed.forEach(p => {
+    const key = p.date.slice(0,7);
+    if (!map[key]) map[key] = { month: key, posts: 0, engagements: 0, impressions: 0 };
+    map[key].posts++;
+    map[key].engagements += getField(p,'eng') || 0;
+    map[key].impressions += getField(p,'imp') || 0;
+  });
+  return Object.values(map).sort((a,b) => a.month.localeCompare(b.month));
+}
+
 const LI_YEARS   = yearsForPlatform(LI_FEED);
 const X_YEARS    = yearsForPlatform(X_FEED);
+const LI_MONTHLY = monthlyForPlatform(LI_FEED);
+const X_MONTHLY  = monthlyForPlatform(X_FEED);
 
 // ─── State ────────────────────────────────────────────────────────────────────
 let currentTab = 'li';
 let liChartMode = 'perPost', xChartMode = 'perPost';
 let activeChart = null, combinedChart = null;
 
-// ─── Boot: populate data source tag ──────────────────────────────────────────
+// ─── Boot ─────────────────────────────────────────────────────────────────────
 (function() {
   const tag = document.getElementById('data-source-tag');
   if (raw && raw.meta) {
-    tag.textContent = raw.meta.firstDate + ' – ' + raw.meta.lastDate
-      + ' · ' + raw.meta.totalPosts + ' posts';
-  } else {
-    tag.textContent = 'No data loaded';
+    tag.textContent = raw.meta.firstDate + ' – ' + raw.meta.lastDate + ' · ' + raw.meta.totalPosts + ' posts';
   }
   setTab('li');
 })();
@@ -232,13 +233,13 @@ function setTab(tab) {
   if (activeChart)   { activeChart.destroy();   activeChart   = null; }
   if (combinedChart) { combinedChart.destroy(); combinedChart = null; }
   ['li','x','combined'].forEach(t => {
-    document.getElementById('tab-'+t).className = 'ptab'+(t===tab?' ptab-active-'+t:'');
+    document.getElementById('tab-'+t).className = 'ptab' + (t===tab ? ' ptab-active-'+t : '');
   });
   updateHeaderBadge(); updateProfileMeta(); updateFooter();
   renderContent();
   setTimeout(() => {
-    if (tab==='li')     { drawChart('li', liChartMode); renderFeed('li'); }
-    else if (tab==='x') { drawChart('x',  xChartMode);  renderFeed('x');  }
+    if (tab==='li')     { drawScatterChart('li', liChartMode); renderFeed('li'); }
+    else if (tab==='x') { drawScatterChart('x',  xChartMode);  renderFeed('x');  }
     else                  drawCombinedChart();
   }, 0);
 }
@@ -249,22 +250,19 @@ function updateHeaderBadge() {
   else if (currentTab==='x') b.textContent = 'X / Twitter';
   else                       b.textContent = 'LinkedIn + X';
 }
-
 function updateProfileMeta() {
   const m = document.getElementById('profile-meta');
-  const liDates = LI_FEED.length ? LI_FEED[LI_FEED.length-1].date+' – '+LI_FEED[0].date : '—';
-  const xDates  = X_FEED.length  ? X_FEED[X_FEED.length-1].date+' – '+X_FEED[0].date   : '—';
+  const liDates = LI_FEED.length ? LI_FEED[LI_FEED.length-1].date + ' – ' + LI_FEED[0].date : '—';
+  const xDates  = X_FEED.length  ? X_FEED[X_FEED.length-1].date  + ' – ' + X_FEED[0].date  : '—';
   if (currentTab==='li')
-    m.innerHTML = metaPill('#0A66C2','LinkedIn Personal Profile')+metaPillText(liDates)+metaPillText(LI_FEED.length+' posts tracked');
+    m.innerHTML = mp('#0A66C2','LinkedIn Personal Profile') + mpt(liDates) + mpt(LI_FEED.length + ' posts tracked');
   else if (currentTab==='x')
-    m.innerHTML = metaPill('#14171A','X / Twitter @MsAnichini')+metaPillText(xDates)+metaPillText(X_FEED.length+' posts tracked');
+    m.innerHTML = mp('#14171A','X / Twitter @MsAnichini') + mpt(xDates) + mpt(X_FEED.length + ' posts tracked');
   else
-    m.innerHTML = metaPill('#5B3FA6','LinkedIn + X')+metaPillText((LI_FEED.length+X_FEED.length)+' total posts');
+    m.innerHTML = mp('#5B3FA6','LinkedIn + X') + mpt((LI_FEED.length + X_FEED.length) + ' total posts');
 }
-
-function metaPill(color,text){ return `<span class="meta-pill"><span class="meta-dot" style="background:${color}"></span>${text}</span>`; }
-function metaPillText(text){ return `<span class="meta-pill">${text}</span>`; }
-
+function mp(color,text){ return `<span class="meta-pill"><span class="meta-dot" style="background:${color}"></span>${text}</span>`; }
+function mpt(text){ return `<span class="meta-pill">${text}</span>`; }
 function updateFooter() {
   const n = document.getElementById('footer-note');
   if (currentTab==='li')     n.textContent = 'LinkedIn · Personal account · Impressions available from January 2026 onward';
@@ -280,9 +278,9 @@ function renderContent() {
   else                       area.innerHTML = renderCombined();
 }
 
-// ─── LinkedIn ──────────────────────────────────────────────────────────────────
+// ─── LinkedIn ─────────────────────────────────────────────────────────────────
 function renderLinkedIn() {
-  const totalImp = LI_MONTHLY.reduce((a,m)=>a+(m.impressions||0),0);
+  const totalImp = LI_YEARS.reduce((a,y) => a + y.totalImp, 0);
   const kpiCards = LI_YEARS.map(y => {
     const cls = String(y.year);
     const delta = y.deltaLabel ? `<div class="kpi-delta ${y.deltaDir==='down'?'delta-down':'delta-up'}">${y.deltaDir==='down'?'↓':'↑'} ${y.deltaLabel}</div>` : '';
@@ -298,11 +296,12 @@ function renderLinkedIn() {
       <div class="kpi-label">Total engagements (${y.posts} posts)</div>
     </div>`;
   }).join('');
-  const impCard = totalImp > 0 ? `<div class="kpi-row"><div class="kpi-card kpi-green" style="max-width:220px">
-    <div class="kpi-year kpi-year-green">2026 YTD</div>
-    <div class="kpi-val">${fmt(totalImp)}</div>
-    <div class="kpi-label">Total impressions (Jan 2026+)</div>
-  </div></div>` : '';
+  const impCard = totalImp > 0 ? `<div class="kpi-row">
+    <div class="kpi-card kpi-green" style="max-width:220px">
+      <div class="kpi-year kpi-year-green">2026 YTD</div>
+      <div class="kpi-val">${fmt(totalImp)}</div>
+      <div class="kpi-label">Total impressions (Jan 2026+)</div>
+    </div></div>` : '';
   const liYears = [...new Set(LI_FEED.map(p=>p.date.slice(0,4)))].sort().reverse();
   return `
   <div class="kpi-section"><div class="kpi-row">${kpiCards}</div>${impCard}</div>
@@ -322,15 +321,18 @@ function renderLinkedIn() {
   </div>
   <div class="feed-section">
     <div class="feed-header">
-      <div><div class="feed-title">Post Feed</div><div class="feed-sub">All posts sorted newest first. Click any post to expand the full text.</div></div>
+      <div><div class="feed-title">Post Feed</div>
+      <div class="feed-sub">All posts sorted newest first. Click any post to expand the full text.</div></div>
       <div class="feed-controls">
         <select class="feed-select" id="li-year-filter" onchange="renderFeed('li')">
           <option value="all">All years</option>
           ${liYears.map(y=>`<option value="${y}">${y}</option>`).join('')}
         </select>
         <select class="feed-select" id="li-sort" onchange="renderFeed('li')">
-          <option value="newest">Newest first</option><option value="oldest">Oldest first</option>
-          <option value="eng">Most engaged</option><option value="reactions">Most reactions</option>
+          <option value="newest">Newest first</option>
+          <option value="oldest">Oldest first</option>
+          <option value="eng">Most engaged</option>
+          <option value="reactions">Most reactions</option>
         </select>
       </div>
     </div>
@@ -341,17 +343,13 @@ function renderLinkedIn() {
 // ─── X ────────────────────────────────────────────────────────────────────────
 function renderX() {
   const total = X_FEED.length;
-  const typeCounts={}, contentCounts={};
-  X_FEED.forEach(p=>{
-    const t=p.contentType||'Unknown';
-    const pt=(p.network==='X'&&p.contentType)?p.contentType:'Post';
-    contentCounts[t]=(contentCounts[t]||0)+1;
-  });
-  const contentItems=Object.entries(contentCounts).sort((a,b)=>b[1]-a[1]);
-  const contentColors=['#14171A','#657786','#AAB8C2','#D0D5DA'];
-  const kpiCards = X_YEARS.map(y=>{
-    const cls=String(y.year);
-    const delta=y.deltaLabel?`<div class="kpi-delta ${y.deltaDir==='down'?'delta-down':'delta-up'}">${y.deltaDir==='down'?'↓':'↑'} ${y.deltaLabel}</div>`:'';
+  const contentCounts = {};
+  X_FEED.forEach(p => { const t = p.contentType||'Unknown'; contentCounts[t]=(contentCounts[t]||0)+1; });
+  const contentItems = Object.entries(contentCounts).sort((a,b)=>b[1]-a[1]);
+  const contentColors = ['#14171A','#657786','#AAB8C2','#D0D5DA'];
+  const kpiCards = X_YEARS.map(y => {
+    const cls = String(y.year);
+    const delta = y.deltaLabel ? `<div class="kpi-delta ${y.deltaDir==='down'?'delta-down':'delta-up'}">${y.deltaDir==='down'?'↓':'↑'} ${y.deltaLabel}</div>` : '';
     return `
     <div class="kpi-card kpi-${cls}">
       <div class="kpi-year kpi-year-${cls}">${y.year}</div>
@@ -364,7 +362,7 @@ function renderX() {
       <div class="kpi-label">Total engagements (${y.posts} posts)</div>
     </div>`;
   }).join('');
-  const xYears=[...new Set(X_FEED.map(p=>p.date.slice(0,4)))].sort().reverse();
+  const xYears = [...new Set(X_FEED.map(p=>p.date.slice(0,4)))].sort().reverse();
   return `
   <div class="kpi-section"><div class="kpi-row">${kpiCards}</div></div>
   <div class="two-col">
@@ -387,14 +385,16 @@ function renderX() {
   </div>
   <div class="feed-section" style="margin-top:0">
     <div class="feed-header">
-      <div><div class="feed-title">Post Feed</div><div class="feed-sub">All posts sorted newest first. Click any post to expand.</div></div>
+      <div><div class="feed-title">Post Feed</div>
+      <div class="feed-sub">All posts sorted newest first. Click any post to expand.</div></div>
       <div class="feed-controls">
         <select class="feed-select" id="x-year-filter" onchange="renderFeed('x')">
           <option value="all">All years</option>
           ${xYears.map(y=>`<option value="${y}">${y}</option>`).join('')}
         </select>
         <select class="feed-select" id="x-sort" onchange="renderFeed('x')">
-          <option value="newest">Newest first</option><option value="oldest">Oldest first</option>
+          <option value="newest">Newest first</option>
+          <option value="oldest">Oldest first</option>
           <option value="eng">Most engaged</option>
         </select>
       </div>
@@ -405,14 +405,14 @@ function renderX() {
 
 // ─── Combined ─────────────────────────────────────────────────────────────────
 function renderCombined() {
-  const liTot=LI_YEARS.reduce((a,y)=>({posts:a.posts+y.posts,eng:a.eng+y.totalEng}),{posts:0,eng:0});
-  const xTot =X_YEARS.reduce((a,y)=>({posts:a.posts+y.posts,eng:a.eng+y.totalEng}),{posts:0,eng:0});
-  const combinedEng=liTot.eng+xTot.eng, combinedPosts=liTot.posts+xTot.posts;
-  const liAvg=liTot.posts?(liTot.eng/liTot.posts).toFixed(1):0;
-  const xAvg =xTot.posts ?(xTot.eng/xTot.posts).toFixed(1) :0;
-  const combinedAvg=combinedPosts?(combinedEng/combinedPosts).toFixed(1):0;
-  const liPct=combinedEng?Math.round(liTot.eng/combinedEng*100):0;
-  const multiplier=xAvg>0?Math.round(parseFloat(liAvg)/parseFloat(xAvg)):'—';
+  const liTot = LI_YEARS.reduce((a,y)=>({posts:a.posts+y.posts,eng:a.eng+y.totalEng}),{posts:0,eng:0});
+  const xTot  = X_YEARS.reduce((a,y)=>({posts:a.posts+y.posts,eng:a.eng+y.totalEng}),{posts:0,eng:0});
+  const combinedEng = liTot.eng+xTot.eng, combinedPosts = liTot.posts+xTot.posts;
+  const liAvg = liTot.posts ? (liTot.eng/liTot.posts).toFixed(1) : 0;
+  const xAvg  = xTot.posts  ? (xTot.eng/xTot.posts).toFixed(1)  : 0;
+  const combinedAvg = combinedPosts ? (combinedEng/combinedPosts).toFixed(1) : 0;
+  const liPct = combinedEng ? Math.round(liTot.eng/combinedEng*100) : 0;
+  const mult  = xAvg > 0 ? Math.round(parseFloat(liAvg)/parseFloat(xAvg)) : '—';
   return `
   <div class="info-banner" style="border-color:#D0C4E8;background:#F5F0FC;color:#3D2A6B">
     <span style="font-size:14px;flex-shrink:0">⚡</span>
@@ -437,7 +437,7 @@ function renderCombined() {
     <div class="kpi-card" style="border-top-color:var(--li-blue)">
       <div class="kpi-year" style="color:var(--li-blue)">INSIGHT</div>
       <div class="kpi-val" style="font-size:20px;color:var(--li-blue)">LinkedIn</div>
-      <div class="kpi-label">${liPct}% of all engagements · ${multiplier}× avg eng/post vs X</div>
+      <div class="kpi-label">${liPct}% of all engagements · ${mult}× avg eng/post vs X</div>
     </div>
   </div></div>
   <div class="compare-grid">
@@ -464,7 +464,7 @@ function renderCombined() {
   </div>
   <div class="chart-card">
     <div class="chart-header">
-      <div><div class="chart-title">Monthly engagements — LinkedIn vs. X</div><div class="chart-sub">Overlapping date window</div></div>
+      <div><div class="chart-title">Monthly engagements — LinkedIn vs. X</div></div>
     </div>
     <div class="chart-wrap" style="height:240px"><canvas id="combinedChartCanvas"></canvas></div>
   </div>`;
@@ -473,110 +473,167 @@ function renderCombined() {
 // ─── Charts ───────────────────────────────────────────────────────────────────
 function switchChart(platform, mode) {
   if (platform==='li') {
-    liChartMode=mode;
-    document.getElementById('li-tog-pp').className='ctoggle'+(mode==='perPost'?' ctoggle-active':'');
-    document.getElementById('li-tog-mt').className='ctoggle'+(mode==='monthly'?' ctoggle-active':'');
+    liChartMode = mode;
+    document.getElementById('li-tog-pp').className = 'ctoggle'+(mode==='perPost'?' ctoggle-active':'');
+    document.getElementById('li-tog-mt').className = 'ctoggle'+(mode==='monthly'?' ctoggle-active':'');
   } else {
-    xChartMode=mode;
-    document.getElementById('x-tog-pp').className='ctoggle'+(mode==='perPost'?' ctoggle-active':'');
-    document.getElementById('x-tog-mt').className='ctoggle'+(mode==='monthly'?' ctoggle-active':'');
+    xChartMode = mode;
+    document.getElementById('x-tog-pp').className = 'ctoggle'+(mode==='perPost'?' ctoggle-active':'');
+    document.getElementById('x-tog-mt').className = 'ctoggle'+(mode==='monthly'?' ctoggle-active':'');
   }
-  if (activeChart) { activeChart.destroy(); activeChart=null; }
-  drawChart(platform, mode);
+  if (activeChart) { activeChart.destroy(); activeChart = null; }
+  drawScatterChart(platform, mode);
 }
 
-function drawChart(platform, mode) {
-  const canvas=document.getElementById('mainChart');
+// Per-post scatter: one dot per post, x = date (time axis), y = engagement
+// Monthly bar: total engagements per month
+function drawScatterChart(platform, mode) {
+  const canvas = document.getElementById('mainChart');
   if (!canvas) return;
-  const monthly=platform==='li'?LI_MONTHLY:X_MONTHLY;
-  if (!monthly.length) return;
-  if (mode==='perPost') {
-    const yearColors={'2024':'#1B4FA8','2025':'#6B1E2E','2026':'#7C3480','2023':'#1A7A4A'};
-    const datasets={};
-    monthly.forEach(m=>{
-      const yr=m.month.slice(0,4);
-      if (!datasets[yr]) datasets[yr]={label:yr,data:[],backgroundColor:yearColors[yr]||'#999',pointRadius:7,pointHoverRadius:9};
-      datasets[yr].data.push({x:fmtMonth(m.month),y:m.avgEng});
+  const feed    = platform==='li' ? LI_FEED    : X_FEED;
+  const monthly = platform==='li' ? LI_MONTHLY : X_MONTHLY;
+  if (!feed.length) return;
+
+  if (mode === 'perPost') {
+    // One dot per post coloured by year
+    const yearColors = {'2024':'#1B4FA8','2025':'#6B1E2E','2026':'#7C3480','2023':'#1A7A4A'};
+    const datasets = {};
+    feed.forEach(p => {
+      const yr = p.date.slice(0,4);
+      if (!datasets[yr]) datasets[yr] = {
+        label: yr, data: [],
+        backgroundColor: yearColors[yr] || '#999',
+        pointRadius: 6, pointHoverRadius: 8
+      };
+      datasets[yr].data.push({ x: p.date, y: getField(p,'eng') || 0 });
     });
-    activeChart=new Chart(canvas,{type:'scatter',data:{datasets:Object.values(datasets)},options:{
-      responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:true,labels:{color:'#6B6B6B',font:{size:11,family:'Inter,sans-serif'},boxWidth:10,padding:14}},tooltip:tooltipStyle()},
-      scales:{x:{type:'category',labels:monthly.map(m=>fmtMonth(m.month)),...axisStyle()},y:{...axisStyle()}}
-    }});
+    activeChart = new Chart(canvas, {
+      type: 'scatter',
+      data: { datasets: Object.values(datasets) },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: true, labels: { color:'#6B6B6B', font:{size:11,family:'Inter,sans-serif'}, boxWidth:10, padding:14 }},
+          tooltip: {
+            ...tooltipStyle(),
+            callbacks: {
+              label: ctx => {
+                const p = feed.find(f => f.date === ctx.raw.x && (getField(f,'eng')||0) === ctx.raw.y);
+                const txt = p ? (p.post||'').slice(0,60)+'…' : '';
+                return [`${ctx.raw.y} engagements`, txt];
+              }
+            }
+          }
+        },
+        scales: {
+          x: { type: 'time', time: { unit: 'month', tooltipFormat: 'MMM yyyy', displayFormats: { month: "MMM ''yy" }}, ...axisStyle() },
+          y: { ...axisStyle(), title: { display: false } }
+        }
+      }
+    });
   } else {
-    activeChart=new Chart(canvas,{type:'bar',data:{
-      labels:monthly.map(m=>fmtMonth(m.month)),
-      datasets:[{label:'Total Engagements',data:monthly.map(m=>m.engagements),
-        backgroundColor:platform==='li'?'rgba(107,30,46,0.6)':'rgba(20,23,26,0.5)',
-        borderColor:platform==='li'?'#6B1E2E':'#14171A',borderWidth:1,borderRadius:4}]
-    },options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:tooltipStyle()},scales:{x:axisStyle(),y:axisStyle()}}});
+    // Monthly total bar chart
+    activeChart = new Chart(canvas, {
+      type: 'bar',
+      data: {
+        labels: monthly.map(m => fmtMonth(m.month)),
+        datasets: [{
+          label: 'Total Engagements',
+          data:  monthly.map(m => m.engagements),
+          backgroundColor: platform==='li' ? 'rgba(107,30,46,0.6)' : 'rgba(20,23,26,0.5)',
+          borderColor:     platform==='li' ? '#6B1E2E' : '#14171A',
+          borderWidth: 1, borderRadius: 4
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: tooltipStyle() },
+        scales: { x: axisStyle(), y: axisStyle() }
+      }
+    });
   }
 }
 
 function drawCombinedChart() {
-  const canvas=document.getElementById('combinedChartCanvas');
+  const canvas = document.getElementById('combinedChartCanvas');
   if (!canvas) return;
-  const allMonths=[...new Set([...LI_MONTHLY.map(m=>m.month),...X_MONTHLY.map(m=>m.month)])].sort();
-  const liMap=Object.fromEntries(LI_MONTHLY.map(m=>[m.month,m.engagements]));
-  const xMap =Object.fromEntries(X_MONTHLY.map(m=>[m.month,m.engagements]));
-  combinedChart=new Chart(canvas,{type:'bar',data:{
-    labels:allMonths.map(fmtMonth),
-    datasets:[
-      {label:'LinkedIn',data:allMonths.map(m=>liMap[m]||0),backgroundColor:'rgba(107,30,46,0.65)',borderColor:'#6B1E2E',borderWidth:1,borderRadius:3},
-      {label:'X (Twitter)',data:allMonths.map(m=>xMap[m]||0),backgroundColor:'rgba(20,23,26,0.35)',borderColor:'#14171A',borderWidth:1,borderRadius:3}
-    ]
-  },options:{responsive:true,maintainAspectRatio:false,
-    plugins:{legend:{display:true,labels:{color:'#6B6B6B',font:{size:11,family:'Inter,sans-serif'},boxWidth:12,padding:16}},tooltip:tooltipStyle()},
-    scales:{x:axisStyle(),y:axisStyle()}}});
+  const allMonths = [...new Set([...LI_MONTHLY.map(m=>m.month),...X_MONTHLY.map(m=>m.month)])].sort();
+  const liMap = Object.fromEntries(LI_MONTHLY.map(m=>[m.month, m.engagements]));
+  const xMap  = Object.fromEntries(X_MONTHLY.map(m=>[m.month,  m.engagements]));
+  combinedChart = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels: allMonths.map(fmtMonth),
+      datasets: [
+        { label:'LinkedIn',   data: allMonths.map(m=>liMap[m]||0), backgroundColor:'rgba(107,30,46,0.65)', borderColor:'#6B1E2E', borderWidth:1, borderRadius:3 },
+        { label:'X (Twitter)',data: allMonths.map(m=>xMap[m] ||0), backgroundColor:'rgba(20,23,26,0.35)',  borderColor:'#14171A', borderWidth:1, borderRadius:3 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display:true, labels:{ color:'#6B6B6B', font:{size:11,family:'Inter,sans-serif'}, boxWidth:12, padding:16 }}, tooltip: tooltipStyle() },
+      scales: { x: axisStyle(), y: axisStyle() }
+    }
+  });
 }
 
-function tooltipStyle(){return{backgroundColor:'#fff',borderColor:'#E0DDD6',borderWidth:1,titleColor:'#1A1A1A',bodyColor:'#6B6B6B',padding:10,titleFont:{size:12,family:'Inter,sans-serif'},bodyFont:{size:12,family:'Inter,sans-serif'}};}
-function axisStyle(){return{grid:{color:'rgba(0,0,0,0.05)'},ticks:{color:'#9A9A9A',font:{size:10,family:'Inter,sans-serif'},maxTicksLimit:14,maxRotation:45},border:{color:'#E0DDD6'}};}
+function tooltipStyle() { return { backgroundColor:'#fff', borderColor:'#E0DDD6', borderWidth:1, titleColor:'#1A1A1A', bodyColor:'#6B6B6B', padding:10, titleFont:{size:12,family:'Inter,sans-serif'}, bodyFont:{size:12,family:'Inter,sans-serif'} }; }
+function axisStyle()    { return { grid:{color:'rgba(0,0,0,0.05)'}, ticks:{color:'#9A9A9A', font:{size:10,family:'Inter,sans-serif'}, maxTicksLimit:14, maxRotation:45}, border:{color:'#E0DDD6'} }; }
 
 // ─── Feed ──────────────────────────────────────────────────────────────────────
 function renderFeed(platform) {
-  const listId=platform==='li'?'li-feed-list':'x-feed-list';
-  const yearId=platform==='li'?'li-year-filter':'x-year-filter';
-  const sortId=platform==='li'?'li-sort':'x-sort';
-  const allPosts=platform==='li'?LI_FEED:X_FEED;
-  const list=document.getElementById(listId);
+  const listId   = platform==='li' ? 'li-feed-list'   : 'x-feed-list';
+  const yearId   = platform==='li' ? 'li-year-filter' : 'x-year-filter';
+  const sortId   = platform==='li' ? 'li-sort'        : 'x-sort';
+  const allPosts = platform==='li' ? LI_FEED          : X_FEED;
+  const list = document.getElementById(listId);
   if (!list) return;
-  const year=document.getElementById(yearId)?.value||'all';
-  const sort=document.getElementById(sortId)?.value||'newest';
-  let posts=[...allPosts];
-  if (year!=='all') posts=posts.filter(p=>p.date.startsWith(year));
-  if (sort==='newest')        posts.sort((a,b)=>b.date.localeCompare(a.date));
-  else if (sort==='oldest')   posts.sort((a,b)=>a.date.localeCompare(b.date));
-  else if (sort==='eng')      posts.sort((a,b)=>b.eng-a.eng);
-  else if (sort==='reactions') posts.sort((a,b)=>(b.reactions||0)-(a.reactions||0));
-  list.innerHTML=posts.slice(0,50).map(p=>{
-    const stats=platform==='li'
-      ?`<span class="post-stat">♥ <strong>${p.reactions||0}</strong></span>
-        <span class="post-stat">💬 <strong>${p.comments||0}</strong></span>
-        <span class="post-stat">↺ <strong>${p.shares||0}</strong></span>
-        ${p.imp?`<span class="post-stat">👁 <strong>${p.imp.toLocaleString()}</strong></span>`:''}`
-      :`<span class="post-stat">♥ <strong>${p.reactions||0}</strong></span>
-        <span class="post-stat">💬 <strong>${p.comments||0}</strong></span>
-        <span class="post-stat">↺ <strong>${p.shares||0}</strong></span>`;
+  const year = document.getElementById(yearId)?.value || 'all';
+  const sort = document.getElementById(sortId)?.value || 'newest';
+  let posts = [...allPosts];
+  if (year !== 'all') posts = posts.filter(p => p.date.startsWith(year));
+  if (sort==='newest')        posts.sort((a,b) => b.date.localeCompare(a.date));
+  else if (sort==='oldest')   posts.sort((a,b) => a.date.localeCompare(b.date));
+  else if (sort==='eng')      posts.sort((a,b) => (b.eng||0) - (a.eng||0));
+  else if (sort==='reactions') posts.sort((a,b) => (b.reactions||0) - (a.reactions||0));
+
+  list.innerHTML = posts.slice(0,50).map(p => {
+    const eng      = getField(p,'eng')       || 0;
+    const reactions= getField(p,'reactions') || 0;
+    const comments = getField(p,'comments')  || 0;
+    const shares   = getField(p,'shares')    || 0;
+    const imp      = getField(p,'imp')       || 0;
+    const postText = p.post || '';
+    const stats = platform==='li'
+      ? `<span class="post-stat">♥ <strong>${reactions}</strong></span>
+         <span class="post-stat">💬 <strong>${comments}</strong></span>
+         <span class="post-stat">↺ <strong>${shares}</strong></span>
+         ${imp ? `<span class="post-stat">👁 <strong>${imp.toLocaleString()}</strong></span>` : ''}`
+      : `<span class="post-stat">♥ <strong>${reactions}</strong></span>
+         <span class="post-stat">💬 <strong>${comments}</strong></span>
+         <span class="post-stat">↺ <strong>${shares}</strong></span>`;
     return `<div class="post-item" onclick="togglePost(this)">
       <div class="post-top-row">
         <div class="post-meta-left">
           <span class="post-date">${p.date}</span>
           <span class="post-badge">${escHtml(p.contentType||'')}</span>
         </div>
-        <span class="eng-badge">${p.eng||0} eng</span>
+        <span class="eng-badge">${eng} eng</span>
       </div>
-      <div class="post-text">${escHtml(p.post||'')}</div>
+      <div class="post-text">${escHtml(postText)}</div>
       <div class="post-stats">${stats}</div>
     </div>`;
-  }).join('')+(posts.length>50?`<div class="feed-more">${posts.length-50} more posts — use filters to narrow results</div>`:'');
+  }).join('') + (posts.length > 50 ? `<div class="feed-more">${posts.length-50} more posts — use filters to narrow results</div>` : '');
 }
 
-function togglePost(el){el.querySelector('.post-text').classList.toggle('expanded');}
-function fmt(n){if(n>=1000)return(n/1000).toFixed(1).replace(/\.0$/,'')+'K';return String(n);}
-function fmtMonth(str){const[y,m]=str.split('-');const names=['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];return names[parseInt(m)]+" '"+y.slice(2);}
-function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
-function makeBar(label,val,total,color){const pct=Math.round(val/total*100);return`<div class="bar-item"><div class="bar-label-row"><span class="bar-label">${label}</span><span class="bar-count">${val} (${pct}%)</span></div><div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${color}"></div></div></div>`;}
+function togglePost(el) { el.querySelector('.post-text').classList.toggle('expanded'); }
+function fmt(n) { if (n >= 1000) return (n/1000).toFixed(1).replace(/\.0$/, '') + 'K'; return String(n); }
+function fmtMonth(str) { const [y,m]=str.split('-'); const names=['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; return names[parseInt(m)]+" '"+y.slice(2); }
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function makeBar(label,val,total,color) {
+  const pct=Math.round(val/total*100);
+  return `<div class="bar-item"><div class="bar-label-row"><span class="bar-label">${label}</span><span class="bar-count">${val} (${pct}%)</span></div><div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${color}"></div></div></div>`;
+}
 </script>
 </body>
 </html>
