@@ -12,7 +12,7 @@
     :root{
       --maroon:#6B1E2E; --dark:#1a1a1a; --mid:#666; --light:#F0EDE7;
       --white:#fff; --border:#E0DDD6;
-      --c2026:#7C3480; --c2025:#6B1E2E; --c2024:#1B4FA8; --c2023:#1A7A4A;
+      --c2026:#9B4ECA; --c2025:#7E162D; --c2024:#185FA5; --c2023:#1D9E75;
       --li-blue:#0A66C2; --x-dark:#14171A; --combined:#5B3FA6;
       --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
     }
@@ -31,12 +31,12 @@
     /* Layout */
     main{max-width:1100px;margin:0 auto;padding:28px 20px 60px}
 
-    /* Panel */
-    .panel{background:var(--white);border:1px solid var(--border);border-radius:10px;padding:22px 24px;margin-bottom:18px;box-shadow:0 1px 4px rgba(0,0,0,.05)}
+    /* Panel — matched to org dashboard */
+    .panel{background:var(--white);border:1px solid var(--border);border-radius:12px;padding:22px 24px;margin-bottom:18px;box-shadow:0 1px 4px rgba(0,0,0,.05)}
 
     /* Platform tabs */
-    .platform-tabs{display:flex;background:var(--white);border:1px solid var(--border);border-radius:10px;padding:5px;margin-bottom:18px;box-shadow:0 1px 4px rgba(0,0,0,.05)}
-    .ptab{flex:1;padding:9px 16px;border-radius:7px;border:none;background:transparent;color:var(--mid);font-family:var(--font);font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:all .18s}
+    .platform-tabs{display:flex;background:var(--white);border:1px solid var(--border);border-radius:12px;padding:6px;margin-bottom:18px;box-shadow:0 1px 4px rgba(0,0,0,.05);gap:4px}
+    .ptab{flex:1;padding:9px 16px;border-radius:8px;border:none;background:transparent;color:var(--mid);font-family:var(--font);font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:all .18s}
     .ptab:hover:not([class*="ptab-active"]){background:#f0ede7;color:var(--dark);transform:translateY(-1px);box-shadow:0 2px 6px rgba(0,0,0,.08)}
     .ptab-active-li{background:var(--li-blue);color:#fff;box-shadow:0 2px 8px rgba(10,102,194,.35)}
     .ptab-active-li:hover{background:#0858a8;color:#fff}
@@ -46,7 +46,7 @@
     .ptab-active-combined:hover{background:#4a3190;color:#fff}
 
     /* Profile hero */
-    .hero{display:flex;align-items:center;gap:18px}
+    .hero{display:flex;align-items:center;gap:20px}
     .hero-avatar{width:56px;height:56px;border-radius:50%;background:var(--maroon);color:#fff;font-size:18px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
     .hero-info h2{font-family:Georgia,serif;font-size:20px;color:var(--dark)}
     .hero-info p{font-size:13px;color:var(--mid);margin-top:2px}
@@ -57,22 +57,22 @@
     .combined-dot{width:7px;height:7px;border-radius:50%;background:var(--combined);display:inline-block}
     .data-tag{margin-left:auto;font-size:11px;color:#aaa;font-style:italic}
 
-    /* KPI cards */
-    .cards{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px}
-    .card{background:var(--white);border:1px solid var(--border);border-left:4px solid;border-radius:8px;padding:16px 18px;min-width:155px;flex:1;box-shadow:0 1px 3px rgba(0,0,0,.05)}
-    .card-yr{font-size:11px;font-weight:700;letter-spacing:.06em;margin-bottom:7px}
-    .card-val{font-size:26px;font-weight:700;color:var(--dark);line-height:1}
-    .card-lbl{font-size:12px;color:var(--mid);margin-top:4px}
-    .card-chg{font-size:11px;font-weight:600;margin-top:5px}
+    /* KPI cards — matched exactly to org dashboard */
+    .cards{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+    .card{background:var(--white);border:1px solid var(--border);border-left:4px solid transparent;border-radius:10px;padding:18px 20px;min-width:160px;flex:1;box-shadow:0 1px 4px rgba(0,0,0,.06);position:relative}
+    .card-yr{font-size:11px;font-weight:700;letter-spacing:.07em;margin-bottom:10px;text-transform:uppercase}
+    .card-val{font-size:28px;font-weight:700;color:var(--dark);line-height:1.05;font-family:Georgia,serif}
+    .card-lbl{font-size:12px;color:var(--mid);margin-top:5px;line-height:1.35}
+    .card-chg{font-size:11px;font-weight:600;margin-top:7px;display:flex;align-items:center;gap:3px}
     .up{color:#1A7A4A} .dn{color:#C0392B}
 
     /* Info note */
-    .note{background:#FBF8EE;border:1px solid #E8DFC0;border-radius:8px;padding:11px 15px;font-size:12px;color:#6B5B2E;margin-bottom:18px;display:flex;gap:8px;align-items:flex-start}
+    .note{background:#FBF8EE;border:1px solid #E8DFC0;border-radius:10px;padding:11px 15px;font-size:12px;color:#6B5B2E;margin-bottom:18px;display:flex;gap:8px;align-items:flex-start}
 
     /* Chart */
     .chart-hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap;gap:10px}
-    .chart-title{font-family:Georgia,serif;font-size:16px;color:var(--dark)}
-    .chart-wrap{position:relative;height:280px}
+    .chart-title{font-family:Georgia,serif;font-size:16px;color:var(--dark);font-weight:400}
+    .chart-wrap{position:relative;height:270px}
     .seg{display:flex;background:var(--light);border-radius:7px;border:1px solid var(--border);padding:2px;gap:2px}
     .seg button{padding:4px 14px;border:none;background:transparent;border-radius:5px;font-size:13px;font-family:inherit;color:var(--mid);cursor:pointer;transition:all .12s}
     .seg button.active{background:var(--maroon);color:#fff;font-weight:600}
@@ -80,14 +80,14 @@
 
     /* Compare grid */
     .compare-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px}
-    .compare-card{background:var(--white);border:1px solid var(--border);border-radius:10px;padding:18px;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+    .compare-card{background:var(--white);border:1px solid var(--border);border-radius:12px;padding:18px;box-shadow:0 1px 3px rgba(0,0,0,.04)}
     .compare-hdr{display:flex;align-items:center;gap:8px;font-family:Georgia,serif;font-size:15px;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--border)}
     .stat-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f0ede7}
     .stat-row:last-child{border-bottom:none}
     .stat-name{font-size:12px;color:var(--mid)} .stat-val{font-size:13px;font-weight:600}
 
     /* Section header */
-    .sec-title{font-family:Georgia,serif;font-size:18px;color:var(--maroon);margin-bottom:.2rem}
+    .sec-title{font-family:Georgia,serif;font-size:17px;color:var(--maroon);margin-bottom:.25rem;font-weight:400}
     .sec-desc{font-size:13px;color:var(--mid);margin-bottom:1rem;line-height:1.4}
 
     /* Filters */
@@ -188,6 +188,11 @@
 <footer>Data sourced from Sprout Social &mdash; The Chicago Public Education Fund &nbsp;&middot;&nbsp; <span id="footerNote"></span></footer>
 
 <script>
+// ─── Date helpers (defined first — used in boot) ──────────────────────────────
+function fmtDate(s){const d=new Date(s+'T12:00:00');return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});}
+function fmtMonthYear(s){const d=new Date(s+'T12:00:00');return d.toLocaleDateString('en-US',{month:'short',year:'numeric'});}
+function fmtDateRange(a,b){return fmtMonthYear(a)+' – '+fmtMonthYear(b);}
+
 // ─── Data from build.js ───────────────────────────────────────────────────────
 const raw = window.INFLUENCER_DATA || null;
 
@@ -221,7 +226,7 @@ function monthlyFor(feed) {
 const LI_YEARS=yearsFor(LI_FEED), X_YEARS=yearsFor(X_FEED);
 const LI_MONTHLY=monthlyFor(LI_FEED), X_MONTHLY=monthlyFor(X_FEED);
 
-const YR_COLORS={'2023':'#1A7A4A','2024':'#1B4FA8','2025':'#6B1E2E','2026':'#7C3480'};
+const YR_COLORS={'2023':'#1D9E75','2024':'#185FA5','2025':'#7E162D','2026':'#9B4ECA'};
 const PER_PAGE=20;
 
 // ─── State ────────────────────────────────────────────────────────────────────
@@ -231,7 +236,7 @@ let activeChart=null, combinedChart=null;
 
 // ─── Boot ─────────────────────────────────────────────────────────────────────
 (function(){
-  if(raw&&raw.meta) document.getElementById('dataTag').textContent=raw.meta.firstDate+' – '+raw.meta.lastDate+' · '+raw.meta.totalPosts+' posts';
+  if(raw&&raw.meta) document.getElementById('dataTag').textContent=fmtDateRange(raw.meta.firstDate,raw.meta.lastDate)+' · '+raw.meta.totalPosts+' posts';
   setTab('li');
 })();
 
@@ -254,8 +259,8 @@ function setTab(tab) {
 
 function updateHeroMeta() {
   const m=document.getElementById('heroMeta');
-  const liD=LI_FEED.length?LI_FEED[LI_FEED.length-1].date+' – '+LI_FEED[0].date:'—';
-  const xD=X_FEED.length?X_FEED[X_FEED.length-1].date+' – '+X_FEED[0].date:'—';
+  const liD=LI_FEED.length?fmtDateRange(LI_FEED[LI_FEED.length-1].date,LI_FEED[0].date):'—';
+  const xD=X_FEED.length?fmtDateRange(X_FEED[X_FEED.length-1].date,X_FEED[0].date):'—';
   if(currentTab==='li')
     m.innerHTML=`<span class="hero-tag"><span class="li-dot"></span>LinkedIn Personal Profile</span><span class="hero-tag">${liD}</span><span class="hero-tag">${LI_FEED.length} posts tracked</span>`;
   else if(currentTab==='x')
@@ -494,7 +499,7 @@ function renderFeed(platform) {
     return `<div class="post-card" style="border-left-color:${borderColor}">
       <div class="post-header">
         <div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap">
-          <span class="post-date">${p.date}</span>
+          <span class="post-date">${fmtDate(p.date)}</span>
           <span class="ctype-badge">${escHtml(ct)}</span>
         </div>
         <div class="post-metrics">${pills.join('')}</div>
@@ -534,7 +539,7 @@ function togglePost(uid, idx) {
 
 function fmt(n){if(n>=1000)return(n/1000).toFixed(1).replace(/\.0$/,'')+'K';return String(n);}
 function fmtMonth(str){const[y,m]=str.split('-');const N=['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];return N[parseInt(m)]+" '"+y.slice(2);}
-function fmtDate(s){const d=new Date(s);return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});}
+
 function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function escAttr(s){return String(s).replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 function makeBar(label,val,total,color){const pct=Math.round(val/total*100);return`<div class="bar-item"><div class="bar-label-row"><span class="bar-label">${label}</span><span class="bar-count">${val} (${pct}%)</span></div><div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${color}"></div></div></div>`;}
