@@ -10,7 +10,7 @@
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
     :root{
-      --maroon:#6B1E2E; --dark:#1a1a1a; --mid:#666; --light:#F0EDE7;
+      --maroon:#7E162D; --dark:#1a1a1a; --mid:#666; --light:#F0EDE7;
       --white:#fff; --border:#E0DDD6;
       --c2026:#9B4ECA; --c2025:#7E162D; --c2024:#185FA5; --c2023:#1D9E75;
       --li-blue:#0A66C2; --x-dark:#14171A; --combined:#5B3FA6;
@@ -94,10 +94,10 @@
     .filter-row{display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;margin-bottom:1rem}
     .filter-row label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mid)}
     select{padding:6px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-family:inherit;color:var(--dark);background:var(--white);cursor:pointer}
-    select:focus{outline:none;border-color:var(--maroon);box-shadow:0 0 0 2px rgba(107,30,46,.1)}
+    select:focus{outline:none;border-color:var(--maroon);box-shadow:0 0 0 2px rgba(126,22,45,.1)}
     .search-wrap{flex:1;min-width:180px;max-width:320px;position:relative}
     .search-wrap input{width:100%;padding:6px 10px 6px 30px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-family:inherit;color:var(--dark);background:var(--white)}
-    .search-wrap input:focus{outline:none;border-color:var(--maroon);box-shadow:0 0 0 2px rgba(107,30,46,.1)}
+    .search-wrap input:focus{outline:none;border-color:var(--maroon);box-shadow:0 0 0 2px rgba(126,22,45,.1)}
     .search-icon{position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--mid);pointer-events:none}
     .results-count{font-size:12px;color:var(--mid);margin-left:auto}
 
@@ -428,8 +428,8 @@ function drawChart(platform, mode) {
     activeChart=new Chart(canvas,{type:'bar',data:{
       labels:monthly.map(m=>fmtMonth(m.month)),
       datasets:[{label:'Total Engagements',data:monthly.map(m=>m.engagements),
-        backgroundColor:platform==='li'?'rgba(107,30,46,.6)':'rgba(20,23,26,.5)',
-        borderColor:platform==='li'?'#6B1E2E':'#14171A',borderWidth:1,borderRadius:4}]
+        backgroundColor:platform==='li'?'rgba(126,22,45,.6)':'rgba(20,23,26,.5)',
+        borderColor:platform==='li'?'#7E162D':'#14171A',borderWidth:1,borderRadius:4}]
     },options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#fff',borderColor:'#E0DDD6',borderWidth:1,titleColor:'#1a1a1a',bodyColor:'#666',padding:10}},
       scales:{x:{grid:{color:'rgba(0,0,0,.05)'},ticks:{color:'#999',font:{size:10}},border:{color:'#E0DDD6'}},y:{grid:{color:'rgba(0,0,0,.05)'},ticks:{color:'#999',font:{size:10}},border:{color:'#E0DDD6'}}}}});
   }
@@ -442,7 +442,7 @@ function drawCombinedChart() {
   const liMap=Object.fromEntries(LI_MONTHLY.map(m=>[m.month,m.engagements]));
   const xMap=Object.fromEntries(X_MONTHLY.map(m=>[m.month,m.engagements]));
   combinedChart=new Chart(canvas,{type:'bar',data:{labels:allM.map(fmtMonth),datasets:[
-    {label:'LinkedIn',data:allM.map(m=>liMap[m]||0),backgroundColor:'rgba(107,30,46,.65)',borderColor:'#6B1E2E',borderWidth:1,borderRadius:3},
+    {label:'LinkedIn',data:allM.map(m=>liMap[m]||0),backgroundColor:'rgba(126,22,45,.65)',borderColor:'#7E162D',borderWidth:1,borderRadius:3},
     {label:'X (Twitter)',data:allM.map(m=>xMap[m]||0),backgroundColor:'rgba(20,23,26,.35)',borderColor:'#14171A',borderWidth:1,borderRadius:3}
   ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,labels:{color:'#666',font:{size:11},boxWidth:12,padding:16}},tooltip:{backgroundColor:'#fff',borderColor:'#E0DDD6',borderWidth:1,titleColor:'#1a1a1a',bodyColor:'#666',padding:10}},
     scales:{x:{grid:{color:'rgba(0,0,0,.05)'},ticks:{color:'#999',font:{size:10}},border:{color:'#E0DDD6'}},y:{grid:{color:'rgba(0,0,0,.05)'},ticks:{color:'#999',font:{size:10}},border:{color:'#E0DDD6'}}}}});
@@ -483,7 +483,7 @@ function renderFeed(platform) {
     const eng=g(p,'eng')||0, reactions=g(p,'reactions')||0, comments=g(p,'comments')||0, shares=g(p,'shares')||0, imp=g(p,'imp')||0;
     const postText=p.post||'';
     const ct=p.contentType||'';
-    const borderColor=YR_COLORS[p.date.slice(0,4)]||'#6B1E2E';
+    const borderColor=YR_COLORS[p.date.slice(0,4)]||'#7E162D';
     const needsTrunc=postText.length>200;
     const uid=p.link||(p.date+String(start+idx));
     const isExpanded=window._expandedPosts.has(uid);
