@@ -153,6 +153,7 @@ footer p{margin-top:3px}
     <div class="seg" id="viewSeg">
       <button class="active" data-v="timeline">Timeline</button>
       <button data-v="byperiod">By Period</button>
+      <button data-v="platforms">Compare Platforms</button>
     </div>
   </div>
   <div class="crow">
@@ -173,7 +174,7 @@ footer p{margin-top:3px}
 <div id="cardArea"></div>
 
 <!-- Note -->
-<div class="note">&#9432; Facebook impressions in July&ndash;October 2024 were predominantly paid (98%+ of views). Select <strong>Facebook</strong> platform and <strong>Impressions</strong> metric to use the Organic / Paid / Total toggle above the chart.</div>
+<div class="note">&#9432; Facebook impressions in July&ndash;October 2024 were predominantly paid (98%+ of views). Use the new <strong>Compare Platforms</strong> view to see Facebook, LinkedIn, and X on one trendline &mdash; Facebook defaults to organic impressions there so the comparison stays like-for-like. For The Fund&rsquo;s own paid vs. organic detail, select <strong>Facebook</strong> platform and <strong>Impressions</strong> metric to use the Organic / Paid / Total toggle.</div>
 
 <!-- Chart -->
 <div class="panel">
@@ -182,6 +183,7 @@ footer p{margin-top:3px}
     <div class="chart-title" id="chartTitle">Impressions over time</div>
     <div class="legend" id="chartLegend"></div>
   </div>
+  <div id="chartCaveat" style="display:none;font-size:12px;color:#8a6d1f;background:rgba(218,201,155,.22);border:1px solid rgba(218,201,155,.6);border-radius:6px;padding:7px 12px;margin-bottom:.8rem;line-height:1.45"></div>
   <div class="chart-wrap"><canvas id="mainChart"></canvas></div>
 </div>
 
@@ -248,6 +250,7 @@ let gran     = 'monthly';
 let viewMode = 'timeline';
 let platform = 'all';
 let impType  = 'total'; // 'total' | 'organic' | 'paid' — only applies when metric=imp and platform=fb
+let fbImpMode = 'organic'; // 'organic' | 'total' — Facebook impressions basis in Compare Platforms view (organic default: excludes Jul–Oct 2024 paid views)
 let activeYears = new Set([2026,2025,2024,2023,2022]);
 let snaps = [], snapId = 0;
 let chart = null;
@@ -297,8 +300,25 @@ function annualSummary(yr, m, plt) {
 
 const PLAT_COLORS = { all: '#404041', x: '#C0392B', fb: '#1877F2', li: '#1D9E75' };
 const PLAT_TEXT   = { all: '#fff', x: '#fff', fb: '#fff', li: '#fff' };
+const PLAT_LABELS = { x: 'X', fb: 'Facebook', li: 'LinkedIn' };
+const COMPARE_PLATFORMS = ['fb', 'li', 'x'];
+
+// Metric key for the Compare Platforms view: Facebook impressions default to
+// organic-only so the Jul–Oct 2024 paid campaign (~1.37M paid views) doesn't
+// distort the cross-platform comparison.
+function compareMetricKey(p, m) {
+  if (m === 'imp' && p === 'fb' && fbImpMode === 'organic') return 'impOrganic';
+  return m;
+}
 
 function renderPlatToggles() {
+  const wrap = document.getElementById('platWrap');
+  const compareOn = viewMode === 'platforms';
+  if (wrap) {
+    wrap.style.opacity = compareOn ? '0.35' : '1';
+    wrap.style.pointerEvents = compareOn ? 'none' : 'auto';
+    wrap.title = compareOn ? 'All platforms are shown side by side in Compare Platforms view' : '';
+  }
   document.querySelectorAll('.platbtn').forEach(btn => {
     const p  = btn.dataset.p;
     const on = platform === p;
@@ -340,6 +360,36 @@ function renderYrToggles() {
 // ── KPI CARDS ────────────────────────────────────────────────────────────
 function renderCards() {
   const area = document.getElementById('cardArea');
+
+  if (viewMode === 'platforms') {
+    // One card per platform for the most recent active year, with YoY change
+    const yr = Math.max(...activeYears);
+    let html = '<div class="cards">';
+    COMPARE_PLATFORMS.forEach(p => {
+      const mk   = compareMetricKey(p, metric);
+      const v    = DATA.annual[yr]?.[p]?.[mk] ?? null;
+      const prev = DATA.annual[yr-1]?.[p]?.[mk] ?? null;
+      const c    = PLAT_COLORS[p];
+      let chg = '';
+      if (v != null && prev != null && prev !== 0) {
+        const pct = (v-prev)/prev*100;
+        const cls = pct >= 0 ? 'up' : 'dn';
+        chg = `<div class="card-chg ${cls}">${pct>=0?'↑':'↓'} ${pct>=0?'+':''}${pct.toFixed(1)}% vs ${yr-1}</div>`;
+      } else if (v == null) {
+        chg = '<div class="card-chg" style="color:#bbb;font-style:italic">No data yet</div>';
+      }
+      const basis = (metric==='imp' && p==='fb' && fbImpMode==='organic') ? ' — organic only' : '';
+      html += `<div class="card" style="border-left-color:${c};border-top:2px solid rgba(218,201,155,.5)">
+        <div class="card-yr" style="color:${c}">${PLAT_LABELS[p]} · ${yr}</div>
+        <div class="card-val">${v!=null?fmt(v,metric):'—'}</div>
+        <div class="card-lbl">${METRIC_CARD[metric]}${basis}</div>
+        ${chg}</div>`;
+    });
+    html += '</div>';
+    area.innerHTML = html;
+    return;
+  }
+
   const sorted = [...activeYears].sort((a,b) => b-a);
   let html = '<div class="cards">';
   sorted.forEach(yr => {
@@ -384,6 +434,12 @@ function getSeriesData(yr) {
 function buildChart() {
   const sorted = [...activeYears].sort((a,b) => a-b);
   let labels, datasets;
+
+  if (viewMode === 'platforms') {
+    buildComparePlatformsChart(sorted);
+    return;
+  }
+
   const pk = platform === 'all' ? 'all' : platform;
   const mk = resolvedMetric(metric, pk);
 
@@ -513,6 +569,126 @@ function buildChart() {
   document.getElementById('chartLegend').innerHTML = legendYears.map(yr =>
     `<span class="litem"><span class="ldot" style="background:${YR_COLORS[yr]}"></span>${yr}</span>`
   ).join('');
+
+  // Caveat note only applies to Compare Platforms view
+  const cav = document.getElementById('chartCaveat');
+  if (cav) cav.style.display = 'none';
+}
+
+// ── COMPARE PLATFORMS VIEW ───────────────────────────────────────────────────
+// One series per platform (FB / LinkedIn / X) on a single timeline.
+// Facebook impressions default to organic-only so the Jul–Oct 2024 paid
+// campaign doesn't swamp the cross-platform comparison.
+function buildComparePlatformsChart(sorted) {
+  const minYr = Math.min(...sorted), maxYr = Math.max(...sorted);
+  let labels, datasets;
+  const isAnnual = gran === 'annual';
+
+  function seriesFor(p) {
+    const mk = compareMetricKey(p, metric);
+    if (gran === 'weekly') {
+      const allWeeks = DATA.weekly.filter(w => w.wy >= minYr && w.wy <= maxYr);
+      return allWeeks.map(w => activeYears.has(w.wy) ? (w[p]?.[mk] ?? null) : null);
+    }
+    if (gran === 'monthly') {
+      const totalSlots = (maxYr-minYr+1)*12;
+      const out = Array(totalSlots).fill(null);
+      for (let y=minYr; y<=maxYr; y++) {
+        if (!activeYears.has(y)) continue;
+        MONTHS_S.forEach((_,i) => { const v = DATA.monthly[y]?.[i]?.[p]?.[mk]; if (v!=null) out[(y-minYr)*12+i]=v; });
+      }
+      return out;
+    }
+    if (gran === 'quarterly') {
+      const totalSlots = (maxYr-minYr+1)*4;
+      const out = Array(totalSlots).fill(null);
+      for (let y=minYr; y<=maxYr; y++) {
+        if (!activeYears.has(y)) continue;
+        [1,2,3,4].forEach((q,i) => { const v = DATA.quarterly[y]?.[q]?.[p]?.[mk]; if (v!=null) out[(y-minYr)*4+i]=v; });
+      }
+      return out;
+    }
+    // annual
+    return sorted.map(yr => DATA.annual[yr]?.[p]?.[mk] ?? null);
+  }
+
+  if (gran === 'weekly') {
+    labels = DATA.weekly.filter(w => w.wy >= minYr && w.wy <= maxYr).map(w => w.label);
+  } else if (gran === 'monthly') {
+    labels = [];
+    for (let y=minYr; y<=maxYr; y++) MONTHS_S.forEach(m => labels.push(m+' '+y));
+  } else if (gran === 'quarterly') {
+    labels = [];
+    for (let y=minYr; y<=maxYr; y++) [1,2,3,4].forEach(q => labels.push('Q'+q+' '+y));
+  } else {
+    labels = sorted.map(String);
+  }
+
+  datasets = COMPARE_PLATFORMS.map(p => {
+    const c = PLAT_COLORS[p];
+    const base = { label: PLAT_LABELS[p], borderColor: c, backgroundColor: isAnnual ? c+'cc' : c+'15' };
+    if (isAnnual) return { ...base, borderWidth: 1.5, borderRadius: 4 };
+    return { ...base, data: null, borderWidth: 2.5,
+      pointRadius: gran==='weekly' ? 0 : gran==='monthly' ? 2 : 5,
+      pointHoverRadius: gran==='weekly' ? 4 : 6, tension: gran==='quarterly' ? .2 : .35, spanGaps: false };
+  }).map((d, i) => ({ ...d, data: seriesFor(COMPARE_PLATFORMS[i]) }));
+
+  const isRate = metric === 'rate';
+  const titleMap = {imp:'Impressions',eng:'Engagements',rate:'Engagement Rate',aud:'Audience'};
+  const granLabel = {weekly:'Weekly',monthly:'Monthly',quarterly:'Quarterly',annual:'Annual'};
+  const impLabel = (metric==='imp') ? (fbImpMode==='organic' ? ' (FB: organic only)' : ' (FB: incl. paid)') : '';
+  document.getElementById('chartTitle').textContent = `${titleMap[metric]} by Platform${impLabel} (${granLabel[gran]})`;
+
+  const ctx = document.getElementById('mainChart').getContext('2d');
+  if (chart) { chart.destroy(); chart = null; }
+  chart = new Chart(ctx, {
+    type: isAnnual ? 'bar' : 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ctx.parsed.y==null?null:` ${ctx.dataset.label}: ${fmt(ctx.parsed.y,metric)}` } }
+      },
+      scales: {
+        x: {
+          grid: { color:'rgba(64,64,65,0.05)' },
+          ticks: { color:'#999', font:{size:11}, maxRotation: gran==='weekly'?45:0,
+                   autoSkip:true, maxTicksLimit: gran==='weekly'?20:gran==='monthly'?18:12 }
+        },
+        y: {
+          beginAtZero: true,
+          grid: { color:'rgba(64,64,65,0.05)' },
+          ticks: { color:'#999', font:{size:11},
+                   callback: v => isRate ? v+'%' : v>=1000?(v/1000).toFixed(0)+'K':v }
+        }
+      }
+    }
+  });
+
+  // Platform legend
+  document.getElementById('chartLegend').innerHTML = COMPARE_PLATFORMS.map(p =>
+    `<span class="litem"><span class="ldot" style="background:${PLAT_COLORS[p]}"></span>${PLAT_LABELS[p]}</span>`
+  ).join('');
+
+  // Contextual caveats — keep cross-platform comparisons footnote-proof
+  const cav = document.getElementById('chartCaveat');
+  if (cav) {
+    let msg = '';
+    const covers2024 = activeYears.has(2024);
+    if (metric === 'imp' && fbImpMode === 'organic') {
+      msg = '<strong>Facebook shown as organic impressions only.</strong> Excludes ~1.37M paid views from the Jul–Oct 2024 paid campaign so platforms are compared on the same organic basis. X and LinkedIn had no paid impressions in this period. Toggle above to include paid.';
+    } else if (metric === 'imp' && fbImpMode === 'total') {
+      msg = '<strong>Facebook includes paid impressions.</strong> Jul–Oct 2024 Facebook views were 98%+ paid (~1.37M), which dominates the scale and is not an organic comparison. Switch to Organic for a like-for-like view.';
+    } else if (metric === 'rate' && covers2024) {
+      msg = '<strong>Note on Facebook engagement rate, Jul–Oct 2024:</strong> paid impressions inflate the denominator and boosted-post engagement inflates the numerator during the paid campaign, so FB rate in those months is not comparable to organic-only platforms.';
+    } else if (metric === 'eng' && covers2024) {
+      msg = '<strong>Note:</strong> Facebook engagements during Jul–Oct 2024 include engagement on boosted posts; X and LinkedIn engagements are fully organic.';
+    }
+    cav.innerHTML = msg;
+    cav.style.display = msg ? 'block' : 'none';
+  }
 }
 
 // ── PERIOD TOTALS ─────────────────────────────────────────────────────────
@@ -738,6 +914,49 @@ const IMP_TYPE_COLORS = { total: '#2D6A4F', organic: '#E9C830', paid: '#5B2D8E' 
 
 function renderImpToggle() {
   const area = document.getElementById('impToggleArea');
+
+  // Compare Platforms view: Facebook impressions basis toggle (organic default)
+  if (viewMode === 'platforms') {
+    if (metric !== 'imp') { area.innerHTML = ''; return; }
+    const types = [
+      { key: 'organic', label: 'Organic', title: 'Facebook organic impressions only — excludes Jul–Oct 2024 paid views (recommended for cross-platform comparison)' },
+      { key: 'total',   label: 'Total (incl. paid)', title: 'All Facebook impressions including the Jul–Oct 2024 paid campaign' },
+    ];
+    const btns = types.map(t => {
+      const on = fbImpMode === t.key;
+      const c  = IMP_TYPE_COLORS[t.key];
+      const textColor = t.key === 'organic' ? '#333' : '#fff';
+      return `<button class="imptbtn" data-fm="${t.key}" title="${t.title}"
+        style="border-color:${on ? c : 'rgba(64,64,65,0.15)'};
+               background:${on ? c : 'transparent'};
+               color:${on ? textColor : '#888'}"
+      >${t.label}</button>`;
+    }).join('');
+    area.innerHTML = `<div class="imp-toggle-wrap">
+      <span class="clabel">FB impressions</span>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">${btns}</div>
+      <span class="imp-toggle-note">Applies to Facebook only &mdash; X and LinkedIn impressions are organic</span>
+    </div>`;
+    area.querySelectorAll('.imptbtn').forEach(btn => {
+      const c = IMP_TYPE_COLORS[btn.dataset.fm];
+      btn.addEventListener('click', () => {
+        fbImpMode = btn.dataset.fm;
+        renderImpToggle();
+        buildChart();
+        renderCards();
+      });
+      btn.addEventListener('mouseenter', () => {
+        if (fbImpMode !== btn.dataset.fm) { btn.style.borderColor = c; btn.style.color = c; }
+        else { btn.style.filter = 'brightness(0.85)'; }
+      });
+      btn.addEventListener('mouseleave', () => {
+        if (fbImpMode !== btn.dataset.fm) { btn.style.borderColor = 'rgba(64,64,65,0.15)'; btn.style.color = '#888'; }
+        btn.style.filter = '';
+      });
+    });
+    return;
+  }
+
   const show = metric === 'imp' && platform === 'fb';
   if (!show) { area.innerHTML = ''; return; }
 
@@ -839,6 +1058,7 @@ document.querySelectorAll('.platbtn').forEach(btn => {
 });
 
 function updateAll() {
+  renderPlatToggles();
   renderImpToggle();
   renderCards();
   buildChart();
