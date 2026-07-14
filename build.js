@@ -580,5 +580,262 @@ window.INFLUENCER_DATA = ${JSON.stringify(infData)};
   console.log('\n── No ./data/influencers/ folder — skipping influencer data ──');
 }
  
+// ═══════════════════════════════════════════════════════════════════════════════
+// ── PART 3: COMPETITOR DASHBOARD (Sprout Competitor Performance + LinkedIn) ──
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// Reads:
+//   ./data/competitors/           Sprout "Competitor Performance" CSVs (Facebook + X).
+//                                 "Competitor Posts" files in the same folder are
+//                                 detected by their headers and skipped.
+//   ./data/competitors_linkedin/  Monthly LinkedIn competitor snapshots (CSV),
+//                                 columns: Month, Organization, Followers,
+//                                 New Followers, Posts, Engagements.
+//                                 Month accepts "2026-10" or "10/2026" or "Oct 2026".
+// Writes:
+//   ./docs/competitor_data.js     window.COMPETITOR_DATA
+//
+// Methodology notes baked in:
+//   • Sprout backfills every profile's rows to the export start date regardless of
+//     when tracking began, so coverage is derived from the data itself: an org's
+//     series is masked (null) before its first month of non-zero activity, and its
+//     follower series is masked before its first non-null Audience value.
+//   • The four peers with verified continuous history to 2024 are flagged
+//     hist2024:true — this powers the peer-set toggle in the dashboard.
+//   • All engagement figures are Sprout PUBLIC engagements (reactions + comments +
+//     shares). The Fund's own series in this dataset uses the identical basis, so
+//     Fund-vs-peer comparisons are same-basis by construction.
+
+const HISTORY_2024 = new Set([
+  'A Better Chicago', 'Hope Chicago', 'IL Raise Your Hand', 'Kids First Chicago',
+]);
+
+const FUND_ORG_NAME = 'The Chicago Public Education Fund';
+
+// Sprout exports X profiles as handles with a leading apostrophe (Excel guard).
+const X_HANDLE_TO_ORG = {
+  '@TheFundChicago':   FUND_ORG_NAME,
+  '@_abetterchicago':  'A Better Chicago',
+  '@HopeChicagoEdu':   'Hope Chicago',
+  '@ILRaiseYourHand':  'IL Raise Your Hand',
+  '@KidsFirstChi':     'Kids First Chicago',
+};
+
+function compNum(s) {
+  if (s == null) return null;
+  const t = String(s).replace(/,/g, '').trim();
+  if (t === '' || t === 'N/A' || t === '-' || t === '—') return null;
+  const v = Number(t);
+  return Number.isFinite(v) ? v : null;
+}
+
+function monthKeyFromMDY(mdy) {
+  // "01-31-2026" -> { y: 2026, m: 0 }
+  const m = /^(\d{2})-(\d{2})-(\d{4})$/.exec((mdy || '').trim());
+  if (!m) return null;
+  return { y: Number(m[3]), m: Number(m[1]) - 1 };
+}
+
+function buildCompetitorData(perfRows, liRows) {
+  // orgsByPlatform[platform][orgName] = {
+  //   hist2024, firstActivity: 'YYYY-MM'|null, firstAudience: 'YYYY-MM'|null,
+  //   monthly: { 'YYYY': [ {eng,posts,aud} | null  x12 ] } }
+  const platforms = { fb: { orgs: {} }, x: { orgs: {} }, li: { orgs: {} } };
+  let lastDateSeen = null;
+
+  // ── Sprout Competitor Performance rows (daily) → monthly aggregates ──────────
+  // accum[platform][org][ 'y:m' ] = { eng, posts, audLast, audDate, anyActivity }
+  const accum = { fb: {}, x: {} };
+  const firstActivity = { fb: {}, x: {} };
+  const firstAudience = { fb: {}, x: {} };
+
+  for (const row of perfRows) {
+    const network = (row['Network'] || '').trim();
+    let plat = null;
+    if (network === 'Facebook') plat = 'fb';
+    else if (network === 'X' || network === 'Twitter') plat = 'x';
+    else continue; // ignore any other networks that appear in future exports
+
+    let org = (row['Profile'] || '').trim().replace(/^'/, '');
+    if (plat === 'x') org = X_HANDLE_TO_ORG[org] || org;
+
+    const mk = monthKeyFromMDY(row['Date']);
+    if (!mk) continue;
+    const dateKey = row['Date'].trim();
+
+    const eng   = compNum(row['Public Engagements']);
+    const posts = compNum(row['Published Posts']);
+    const aud   = compNum(row['Audience']);
+
+    const byOrg = accum[plat];
+    if (!byOrg[org]) byOrg[org] = {};
+    const slotKey = mk.y + ':' + mk.m;
+    if (!byOrg[org][slotKey]) byOrg[org][slotKey] = { eng: 0, posts: 0, audLast: null, audDate: '' };
+    const slot = byOrg[org][slotKey];
+
+    if (eng)   slot.eng   += eng;
+    if (posts) slot.posts += posts;
+    // Track the latest audience reading in the month (rows may not be ordered)
+    if (aud != null && aud !== 0) {
+      const sortable = dateKey.slice(6) + dateKey.slice(0, 2) + dateKey.slice(3, 5); // YYYYMMDD
+      if (sortable >= slot.audDate) { slot.audLast = aud; slot.audDate = sortable; }
+      const ym = mk.y + '-' + String(mk.m + 1).padStart(2, '0');
+      if (!firstAudience[plat][org] || ym < firstAudience[plat][org]) firstAudience[plat][org] = ym;
+    }
+    if ((eng && eng !== 0) || (posts && posts !== 0) || (aud != null && aud !== 0)) {
+      const ym = mk.y + '-' + String(mk.m + 1).padStart(2, '0');
+      if (!firstActivity[plat][org] || ym < firstActivity[plat][org]) firstActivity[plat][org] = ym;
+      if (!lastDateSeen || (dateKey.slice(6) + dateKey.slice(0, 2) + dateKey.slice(3, 5)) >
+          (lastDateSeen.slice(6) + lastDateSeen.slice(0, 2) + lastDateSeen.slice(3, 5))) {
+        lastDateSeen = dateKey;
+      }
+    }
+  }
+
+  for (const plat of ['fb', 'x']) {
+    for (const org of Object.keys(accum[plat])) {
+      const fa = firstActivity[plat][org] || null;
+      const fAud = firstAudience[plat][org] || null;
+      const monthly = {};
+      for (const slotKey of Object.keys(accum[plat][org])) {
+        const [y, m] = slotKey.split(':').map(Number);
+        if (!monthly[y]) monthly[y] = Array(12).fill(null);
+        const slot = accum[plat][org][slotKey];
+        const ym = y + '-' + String(m + 1).padStart(2, '0');
+        // Mask months before the org's first real activity (Sprout backfill guard)
+        if (fa && ym < fa) continue;
+        monthly[y][m] = {
+          eng: slot.eng,
+          posts: slot.posts,
+          aud: (fAud && ym >= fAud) ? slot.audLast : null,
+        };
+      }
+      platforms[plat].orgs[org] = {
+        hist2024: HISTORY_2024.has(org) || org === FUND_ORG_NAME,
+        firstActivity: fa,
+        firstAudience: fAud,
+        monthly,
+      };
+    }
+  }
+
+  // ── LinkedIn monthly snapshots ────────────────────────────────────────────────
+  // liRows: array of parsed rows across all files, later files win on (month, org)
+  const liByKey = {};
+  for (const row of liRows) {
+    // Header names are matched case-insensitively and loosely
+    const get = (names) => {
+      for (const k of Object.keys(row)) {
+        const kk = k.toLowerCase().replace(/[^a-z]/g, '');
+        for (const n of names) if (kk === n) return row[k];
+      }
+      return null;
+    };
+    const monthRaw = (get(['month', 'period', 'date']) || '').trim();
+    const org = (get(['organization', 'org', 'page', 'company', 'profile']) || '').trim();
+    if (!monthRaw || !org) continue;
+
+    let y = null, m = null;
+    let mm = /^(\d{4})-(\d{1,2})$/.exec(monthRaw);              // 2026-10
+    if (mm) { y = Number(mm[1]); m = Number(mm[2]) - 1; }
+    if (!mm) {
+      mm = /^(\d{1,2})\/(\d{4})$/.exec(monthRaw);               // 10/2026
+      if (mm) { y = Number(mm[2]); m = Number(mm[1]) - 1; }
+    }
+    if (!mm) {
+      const MON = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+      mm = /^([A-Za-z]{3,})\s+(\d{4})$/.exec(monthRaw);          // Oct 2026 / October 2026
+      if (mm) { y = Number(mm[2]); m = MON.indexOf(mm[1].slice(0, 3).toLowerCase()); }
+    }
+    if (y == null || m == null || m < 0) continue;
+
+    liByKey[y + ':' + m + ':' + org] = {
+      y, m, org,
+      aud:   compNum(get(['followers', 'totalfollowers', 'audience'])),
+      newF:  compNum(get(['newfollowers', 'followergrowth'])),
+      posts: compNum(get(['posts', 'totalposts', 'publishedposts'])),
+      eng:   compNum(get(['engagements', 'totalengagements', 'publicengagements'])),
+    };
+  }
+  for (const key of Object.keys(liByKey)) {
+    const r = liByKey[key];
+    if (!platforms.li.orgs[r.org]) {
+      platforms.li.orgs[r.org] = { hist2024: false, firstActivity: null, firstAudience: null, monthly: {} };
+    }
+    const o = platforms.li.orgs[r.org];
+    if (!o.monthly[r.y]) o.monthly[r.y] = Array(12).fill(null);
+    o.monthly[r.y][r.m] = { eng: r.eng ?? 0, posts: r.posts ?? 0, aud: r.aud, newFollowers: r.newF };
+    const ym = r.y + '-' + String(r.m + 1).padStart(2, '0');
+    if (!o.firstActivity || ym < o.firstActivity) { o.firstActivity = ym; o.firstAudience = ym; }
+  }
+
+  return {
+    fund: FUND_ORG_NAME,
+    platforms,
+    meta: {
+      builtAt: new Date().toISOString(),
+      lastDate: lastDateSeen,
+      liActive: Object.keys(platforms.li.orgs).length > 0,
+      notes: 'Public engagements only (reactions+comments+shares). Series masked before each org\u2019s first tracked activity.',
+    },
+  };
+}
+
+// ── Build competitor data ──────────────────────────────────────────────────────
+const competitorDir   = path.join(__dirname, 'data', 'competitors');
+const competitorLiDir = path.join(__dirname, 'data', 'competitors_linkedin');
+const compOutFile     = path.join(__dirname, 'docs', 'competitor_data.js');
+
+let compPerfRows = [];
+if (fs.existsSync(competitorDir)) {
+  const compFiles = fs.readdirSync(competitorDir).filter(f => f.toLowerCase().endsWith('.csv')).sort();
+  if (compFiles.length > 0) {
+    console.log(`\n── Competitor data (${compFiles.length} file(s)) ──`);
+    for (const f of compFiles) {
+      const rows = parseCSV(path.join(competitorDir, f));
+      const headers = rows.length ? Object.keys(rows[0]) : [];
+      const isPerf = headers.includes('Public Engagements') && headers.includes('Audience') && headers.includes('Date');
+      if (isPerf) {
+        console.log(`  ${f}  (${rows.length} rows — Competitor Performance)`);
+        compPerfRows = compPerfRows.concat(rows);
+      } else {
+        console.log(`  ${f}  (skipped — not a Competitor Performance export)`);
+      }
+    }
+  } else {
+    console.log('\n── No competitor CSVs in ./data/competitors/ — skipping ──');
+  }
+} else {
+  console.log('\n── No ./data/competitors/ folder — skipping competitor data ──');
+}
+
+let compLiRows = [];
+if (fs.existsSync(competitorLiDir)) {
+  const liFiles = fs.readdirSync(competitorLiDir).filter(f => f.toLowerCase().endsWith('.csv')).sort();
+  if (liFiles.length > 0) {
+    console.log(`\n── LinkedIn competitor snapshots (${liFiles.length} file(s)) ──`);
+    for (const f of liFiles) {
+      const rows = parseCSV(path.join(competitorLiDir, f));
+      console.log(`  ${f}  (${rows.length} rows)`);
+      compLiRows = compLiRows.concat(rows);
+    }
+  } else {
+    console.log('\n── No LinkedIn snapshots in ./data/competitors_linkedin/ yet (Q4 2026) ──');
+  }
+}
+
+if (compPerfRows.length > 0 || compLiRows.length > 0) {
+  const compData = buildCompetitorData(compPerfRows, compLiRows);
+  const fbOrgs = Object.keys(compData.platforms.fb.orgs).length;
+  const xOrgs  = Object.keys(compData.platforms.x.orgs).length;
+  const liOrgs = Object.keys(compData.platforms.li.orgs).length;
+  console.log(`Competitor orgs — Facebook: ${fbOrgs}, X: ${xOrgs}, LinkedIn: ${liOrgs}${liOrgs === 0 ? ' (awaiting Q4 2026)' : ''}`);
+  const compOutput = `// Auto-generated by build.js — do not edit manually.
+// Built: ${compData.meta.builtAt}
+window.COMPETITOR_DATA = ${JSON.stringify(compData)};
+`;
+  fs.writeFileSync(compOutFile, compOutput, 'utf8');
+  console.log(`✓ Written ${compOutFile} (${(compOutput.length/1024).toFixed(1)} KB)`);
+}
+
 console.log('\nBuild complete.');
- 
