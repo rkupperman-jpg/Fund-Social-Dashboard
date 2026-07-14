@@ -187,6 +187,45 @@ footer p{margin-top:3px}
   <div class="chart-wrap"><canvas id="mainChart"></canvas></div>
 </div>
 
+<!-- Competitive Landscape -->
+<div class="panel" id="compPanel" style="display:none">
+  <div class="sec-title">Competitive Landscape</div>
+  <div class="sec-desc">The Fund vs. tracked Chicago-education peers. All series use Sprout competitor data — <strong>public engagements</strong> (reactions + comments + shares) and followers only; impressions are not available for peers. The Fund&rsquo;s line uses the identical public-engagement basis, so comparisons are like-for-like. <span id="compLastDate"></span></div>
+  <div class="crow" style="margin-bottom:.7rem">
+    <span class="clabel">Platform</span>
+    <div class="seg" id="compPlatSeg">
+      <button class="active" data-cp="fb">Facebook</button>
+      <button data-cp="x">X</button>
+      <button data-cp="li">LinkedIn</button>
+    </div>
+    <div class="cdiv"></div>
+    <span class="clabel">Metric</span>
+    <div class="seg" id="compMetricSeg">
+      <button class="active" data-cm="eng">Engagements</button>
+      <button data-cm="aud">Followers</button>
+      <button data-cm="posts">Posts</button>
+    </div>
+    <div class="cdiv"></div>
+    <span class="clabel">Peer set</span>
+    <div class="seg" id="compSetSeg">
+      <button class="active" data-cs="hist">2024 history (4 peers)</button>
+      <button data-cs="all">All tracked peers</button>
+    </div>
+  </div>
+  <div id="compCaveat" style="display:none;font-size:12px;color:#8a6d1f;background:rgba(218,201,155,.22);border:1px solid rgba(218,201,155,.6);border-radius:6px;padding:7px 12px;margin-bottom:.8rem;line-height:1.45"></div>
+  <div class="chart-hdr">
+    <div class="chart-title" id="compTitle"></div>
+    <div class="legend" id="compLegend"></div>
+  </div>
+  <div class="chart-wrap" id="compChartWrap"><canvas id="compChart"></canvas></div>
+  <div id="compPlaceholder" style="display:none;padding:2.2rem 1.5rem;text-align:center;color:#8a6d1f;background:rgba(218,201,155,.18);border:1px dashed rgba(139,105,20,.4);border-radius:8px;font-size:14px;line-height:1.6">
+    <strong>LinkedIn competitor tracking begins Q4 2026.</strong><br>
+    Once the Premium Company Page upgrade is active, upload monthly snapshot CSVs to
+    <code style="background:rgba(255,255,255,.7);padding:1px 5px;border-radius:3px">data/competitors_linkedin/</code>
+    with columns <em>Month, Organization, Followers, New Followers, Posts, Engagements</em> — this view activates automatically on the next rebuild.
+  </div>
+</div>
+
 <!-- Period Totals -->
 <div class="panel">
   <div class="sec-title">Period Totals</div>
@@ -231,6 +270,7 @@ footer p{margin-top:3px}
 </footer>
 
 <script src="data.js"></script>
+<script src="competitor_data.js"></script>
 <script>
 // ── DATA ──────────────────────────────────────────────────────────────
 const DATA = window.DASHBOARD_DATA;
@@ -1010,6 +1050,168 @@ function updateSnapMetricBadge() {
   if (badge) badge.textContent = METRIC_LABELS[metric];
 }
 
+// ── COMPETITIVE LANDSCAPE ─────────────────────────────────────────────────────
+const CDATA = window.COMPETITOR_DATA || null;
+let compPlat = 'fb', compMetric = 'eng', compSet = 'hist', compChartObj = null;
+
+const COMP_PEER_COLORS = {
+  'Kids First Chicago': '#185FA5',
+  'A Better Chicago':   '#1D9E75',
+  'Hope Chicago':       '#D4732A',
+  'IL Raise Your Hand': '#9B4ECA',
+};
+const COMP_OTHER_COLOR = '#B9B5AD';
+const COMP_METRIC_LABELS = { eng: 'Public Engagements', aud: 'Followers', posts: 'Published Posts' };
+
+function compMonthAxis(orgs) {
+  // Union of years with any data across selected orgs → ['Jan 2024', ...] up to last month with data
+  let minY = Infinity, maxY = -Infinity, lastM = 0;
+  for (const o of orgs) {
+    for (const y of Object.keys(o.monthly)) {
+      const yr = Number(y);
+      if (yr < minY) minY = yr;
+      if (yr > maxY) { maxY = yr; }
+    }
+  }
+  if (!isFinite(minY)) return { labels: [], minY: null, maxY: null, lastM: 11 };
+  for (const o of orgs) {
+    const arr = o.monthly[maxY];
+    if (arr) arr.forEach((v, i) => { if (v != null && i > lastM) lastM = i; });
+  }
+  const labels = [];
+  for (let y = minY; y <= maxY; y++) {
+    const upto = (y === maxY) ? lastM : 11;
+    for (let m = 0; m <= upto; m++) labels.push(MONTHS_S[m] + ' ' + y);
+  }
+  return { labels, minY, maxY, lastM };
+}
+
+function compSeries(o, minY, maxY, lastM) {
+  const out = [];
+  for (let y = minY; y <= maxY; y++) {
+    const upto = (y === maxY) ? lastM : 11;
+    for (let m = 0; m <= upto; m++) {
+      const v = o.monthly[y]?.[m];
+      out.push(v == null ? null : (v[compMetric] ?? null));
+    }
+  }
+  return out;
+}
+
+function buildCompChart() {
+  if (!CDATA) return;
+  const panel = document.getElementById('compPanel');
+  panel.style.display = '';
+  const wrap = document.getElementById('compChartWrap');
+  const ph   = document.getElementById('compPlaceholder');
+  const legendEl = document.getElementById('compLegend');
+  const caveat = document.getElementById('compCaveat');
+  const setSeg = document.getElementById('compSetSeg');
+
+  const platData = CDATA.platforms[compPlat];
+  const orgNames = Object.keys(platData.orgs);
+
+  // LinkedIn placeholder state
+  if (compPlat === 'li' && orgNames.length === 0) {
+    wrap.style.display = 'none'; ph.style.display = 'block';
+    legendEl.innerHTML = ''; caveat.style.display = 'none';
+    document.getElementById('compTitle').textContent = 'LinkedIn — awaiting Q4 2026 data';
+    if (compChartObj) { compChartObj.destroy(); compChartObj = null; }
+    return;
+  }
+  wrap.style.display = ''; ph.style.display = 'none';
+
+  // Peer-set toggle only meaningful on Facebook (X tracks 4 peers, LinkedIn is fixed)
+  setSeg.parentElement && (setSeg.style.opacity = compPlat === 'fb' ? '1' : '.35');
+  setSeg.style.pointerEvents = compPlat === 'fb' ? 'auto' : 'none';
+
+  const useAll = compPlat !== 'fb' || compSet === 'all';
+  const selected = orgNames.filter(n => {
+    if (n === CDATA.fund) return true;
+    if (compPlat !== 'fb') return true;
+    return compSet === 'all' ? true : platData.orgs[n].hist2024;
+  });
+
+  const orgObjs = selected.map(n => platData.orgs[n]);
+  const { labels, minY, maxY, lastM } = compMonthAxis(orgObjs);
+  if (!labels.length) return;
+
+  // Draw order: gray others → colored peers → The Fund on top
+  const others  = selected.filter(n => n !== CDATA.fund && !COMP_PEER_COLORS[n]);
+  const colored = selected.filter(n => n !== CDATA.fund && COMP_PEER_COLORS[n]);
+  const ordered = [...others, ...colored, CDATA.fund].filter(n => selected.includes(n));
+
+  const datasets = ordered.map(n => {
+    const isFund = n === CDATA.fund;
+    const c = isFund ? '#7E162D' : (COMP_PEER_COLORS[n] || COMP_OTHER_COLOR);
+    return {
+      label: isFund ? 'The Fund' : n,
+      data: compSeries(platData.orgs[n], minY, maxY, lastM),
+      borderColor: c, backgroundColor: c + '15',
+      borderWidth: isFund ? 3.5 : (COMP_PEER_COLORS[n] ? 2 : 1.4),
+      pointRadius: isFund ? 3 : 0, pointHoverRadius: 5,
+      tension: .3, spanGaps: false,
+    };
+  });
+
+  document.getElementById('compTitle').textContent =
+    `${COMP_METRIC_LABELS[compMetric]} — The Fund vs. Peers (Monthly)`;
+
+  const ctx = document.getElementById('compChart').getContext('2d');
+  if (compChartObj) { compChartObj.destroy(); compChartObj = null; }
+  compChartObj = new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'nearest', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: c => c.parsed.y == null ? null : ` ${c.dataset.label}: ${fmt(c.parsed.y, 'imp')}` } }
+      },
+      scales: {
+        x: { grid: { color: 'rgba(64,64,65,0.05)' },
+             ticks: { color: '#999', font: { size: 11 }, autoSkip: true, maxTicksLimit: 16 } },
+        y: { beginAtZero: true, grid: { color: 'rgba(64,64,65,0.05)' },
+             ticks: { color: '#999', font: { size: 11 }, callback: v => v >= 1000 ? (v/1000).toFixed(0) + 'K' : v } }
+      }
+    }
+  });
+
+  // Legend: Fund + colored peers (+ gray "other peers" chip in all-mode)
+  let lg = `<span class="litem"><span class="ldot" style="background:#7E162D"></span>The Fund</span>` +
+    colored.map(n => `<span class="litem"><span class="ldot" style="background:${COMP_PEER_COLORS[n]}"></span>${n}</span>`).join('');
+  if (others.length) lg += `<span class="litem"><span class="ldot" style="background:${COMP_OTHER_COLOR}"></span>Other peers (${others.length}) — hover to identify</span>`;
+  legendEl.innerHTML = lg;
+
+  // Caveats — footnote-proof, per platform/metric
+  let msgs = [];
+  if (compPlat === 'fb') {
+    if (compSet === 'all') msgs.push('<strong>Coverage:</strong> most peers were added to Sprout tracking June 5, 2026; only A Better Chicago, Hope Chicago, IL Raise Your Hand, and Kids First Chicago have continuous history to 2024. Lines begin at each org\u2019s first tracked activity.');
+    if (compMetric === 'eng') msgs.push('<strong>Note:</strong> The Fund\u2019s Facebook engagements include boosted-post engagement (notably Jul\u2013Oct 2024); peer engagement is organic.');
+    if (compMetric === 'aud') msgs.push('<strong>Followers:</strong> peer follower tracking begins December 2024 for the four legacy peers and June 2026 for all others.');
+  }
+  if (compPlat === 'x') {
+    msgs.push('<strong>Coverage:</strong> 4 peer handles tracked. Full-2024 history exists for The Fund and Hope Chicago only; the other three populate from July 2024, with follower tracking from December 2024.');
+  }
+  if (compPlat === 'li' && orgNames.length > 0) {
+    msgs.push('<strong>LinkedIn series begins with the first Premium export (Q4 2026).</strong> The April 2026 manual audit is reported separately (differing metric definitions) \u2014 see deck appendix A9.');
+  }
+  caveat.innerHTML = msgs.join('<br>');
+  caveat.style.display = msgs.length ? 'block' : 'none';
+}
+
+function compSegInit(id, attr, cb) {
+  document.getElementById(id).querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.getElementById(id).querySelectorAll('button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      cb(btn.dataset[attr]);
+      buildCompChart();
+    });
+  });
+}
+
 // ── WIRE UP ────────────────────────────────────────────────────────────────
 function segInit(id, attr, cb) {
   document.getElementById(id).querySelectorAll('button').forEach(btn => {
@@ -1079,6 +1281,12 @@ renderPeriodTable();
 renderSnaps();
 renderSnapTable();
 updateAll();
+if (CDATA) {
+  compSegInit('compPlatSeg',   'cp', v => { compPlat = v; });
+  compSegInit('compMetricSeg', 'cm', v => { compMetric = v; });
+  compSegInit('compSetSeg',    'cs', v => { compSet = v; });
+  buildCompChart();
+}
 </script>
 </body>
 </html>
