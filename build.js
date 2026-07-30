@@ -23,6 +23,7 @@
  
 const fs   = require('fs');
 const path = require('path');
+const XLSX = require('xlsx'); // only used to read raw LinkedIn native .xlsx exports, see PART 3
  
 // ── SHARED: CSV PARSER ───────────────────────────────────────────────────────
 // Handles quoted fields containing embedded newlines and commas correctly.
@@ -588,10 +589,20 @@ window.INFLUENCER_DATA = ${JSON.stringify(infData)};
 //   ./data/competitors/           Sprout "Competitor Performance" CSVs (Facebook + X).
 //                                 "Competitor Posts" files in the same folder are
 //                                 detected by their headers and skipped.
-//   ./data/competitors_linkedin/  Monthly LinkedIn competitor snapshots (CSV),
-//                                 columns: Month, Organization, Followers,
-//                                 New Followers, Posts, Engagements.
-//                                 Month accepts "2026-10" or "10/2026" or "Oct 2026".
+//   ./data/competitors_linkedin/  LinkedIn competitor snapshots. Two accepted forms:
+//                                 (a) .xlsx — raw export downloaded directly from
+//                                     LinkedIn's native "Competitors" tab, no
+//                                     conversion needed. Parsed by
+//                                     parseLinkedInRawXlsx() below; the month is
+//                                     read from the date range in row 1, so each
+//                                     file must cover a single calendar month
+//                                     (multi-month aggregate exports are skipped
+//                                     with a log message, not guessed at).
+//                                 (b) .csv — pre-converted rows with columns
+//                                     Month, Organization, Followers,
+//                                     New Followers, Posts, Engagements.
+//                                     Month accepts "2026-10" or "10/2026" or
+//                                     "Oct 2026". Kept for historical/manual use.
 // Writes:
 //   ./docs/competitor_data.js     window.COMPETITOR_DATA
 //
@@ -602,9 +613,81 @@ window.INFLUENCER_DATA = ${JSON.stringify(infData)};
 //     follower series is masked before its first non-null Audience value.
 //   • The four peers with verified continuous history to 2024 are flagged
 //     hist2024:true — this powers the peer-set toggle in the dashboard.
-//   • All engagement figures are Sprout PUBLIC engagements (reactions + comments +
-//     shares). The Fund's own series in this dataset uses the identical basis, so
-//     Fund-vs-peer comparisons are same-basis by construction.
+//   • All Facebook/X engagement figures are Sprout PUBLIC engagements (reactions +
+//     comments + shares). The Fund's own series in this dataset uses the identical
+//     basis, so Fund-vs-peer comparisons are same-basis by construction.
+//
+// LinkedIn data source note (as of July 2026):
+//   The original plan was a Sprout Social Premium Company Page upgrade in Q4 2026,
+//   supporting up to 9 tracked competitors with 365-day retention. That plan is no
+//   longer viable as described: LinkedIn now restricts free Company Pages to
+//   tracking just 1 competitor (down from a prior limit of 9), and the peer list
+//   cannot be edited, added to, or removed from on the free tier. Multi-competitor
+//   *management* requires a paid LinkedIn Premium Company Page subscription (from
+//   $99/month). However, LinkedIn appears to still be updating data for the 9-peer
+//   list that was in place before the cap took effect (grandfathered, not editable)
+//   pulled from LinkedIn's native admin "Competitors" analytics tab. This is
+//   provisional, not guaranteed — LinkedIn could stop providing it at any time — so
+//   treat new monthly exports as "keep uploading while it lasts," not a stable feed.
+//   Engagements here = reactions + comments only (no shares field was available),
+//   which differs from Facebook/X's public-engagements basis; see the in-app caveat.
+//   New monthly files can be dropped in as the raw .xlsx export directly — no
+//   manual conversion needed, see parseLinkedInRawXlsx() above.
+
+// Parses a raw LinkedIn native "Competitors" tab export (.xlsx), no manual
+// conversion needed. Expected shape:
+//   Row 1:  [start date, end date]           e.g. 8/1/2025, 8/31/2025
+//   Row 2:  Page | New Followers | Posts | Comments | Comments per day | Reactions
+//   Row 3+: one row per tracked organization
+// The month is derived from the row-1 date range; if start and end don't fall
+// in the same calendar month (e.g. a rolling 12-month aggregate export rather
+// than a single month), the file is skipped rather than guessed at, since
+// mixing it with the monthly files would double-count.
+function parseLinkedInRawXlsx(filePath) {
+  const wb = XLSX.readFile(filePath, { cellDates: true });
+  const sheetName = wb.SheetNames.includes('COMPETITORS') ? 'COMPETITORS' : wb.SheetNames[0];
+  const grid = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header: 1, defval: null });
+  if (!grid.length) return { rows: [], skippedReason: 'empty sheet' };
+
+  const parseDate = (v) => {
+    if (v instanceof Date) return { y: v.getFullYear(), m: v.getMonth() };
+    const mm = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(String(v || '').trim());
+    return mm ? { y: Number(mm[3]), m: Number(mm[1]) - 1 } : null;
+  };
+  const s = parseDate(grid[0] && grid[0][0]);
+  const e = parseDate(grid[0] && grid[0][1]);
+  if (!s || !e) return { rows: [], skippedReason: `couldn't read a date range from row 1 ("${grid[0]}")` };
+  if (s.y !== e.y || s.m !== e.m) {
+    return { rows: [], skippedReason: `row-1 range spans more than one month (${grid[0][0]} \u2192 ${grid[0][1]}) \u2014 looks like a multi-month aggregate export, not a single monthly one; upload the individual monthly export instead` };
+  }
+  const month = s.y + '-' + String(s.m + 1).padStart(2, '0');
+
+  const headerRow = grid[1] || [];
+  const idx = {};
+  headerRow.forEach((h, i) => { idx[String(h || '').toLowerCase().trim()] = i; });
+  const pageIdx = idx['page'], newFIdx = idx['new followers'], postsIdx = idx['posts'],
+        commentsIdx = idx['comments'], reactionsIdx = idx['reactions'];
+  if (pageIdx == null || postsIdx == null || reactionsIdx == null) {
+    return { rows: [], skippedReason: 'header row (row 2) didn\u2019t match the expected Page / New Followers / Posts / Comments / Reactions layout' };
+  }
+
+  const rows = [];
+  for (let r = 2; r < grid.length; r++) {
+    const row = grid[r];
+    if (!row || row[pageIdx] == null || row[pageIdx] === '') continue;
+    const comments = Math.max(Number(row[commentsIdx]) || 0, 0); // guards a rare negative-delta artifact
+    const reactions = Number(row[reactionsIdx]) || 0;
+    rows.push({
+      Month: month,
+      Organization: String(row[pageIdx]).trim(),
+      Followers: '',
+      'New Followers': newFIdx != null ? row[newFIdx] : '',
+      Posts: postsIdx != null ? row[postsIdx] : 0,
+      Engagements: comments + reactions, // reactions + comments only; LinkedIn's native export has no shares field
+    });
+  }
+  return { rows, skippedReason: null };
+}
 
 const HISTORY_2024 = new Set([
   'A Better Chicago', 'Hope Chicago', 'IL Raise Your Hand', 'Kids First Chicago',
@@ -776,7 +859,7 @@ function buildCompetitorData(perfRows, liRows) {
       builtAt: new Date().toISOString(),
       lastDate: lastDateSeen,
       liActive: Object.keys(platforms.li.orgs).length > 0,
-      notes: 'Public engagements only (reactions+comments+shares). Series masked before each org\u2019s first tracked activity.',
+      notes: 'Facebook/X: public engagements (reactions+comments+shares). LinkedIn: reactions+comments only, no shares field available; one-time native export, Aug 2025\u2013Jun 2026. Series masked before each org\u2019s first tracked activity.',
     },
   };
 }
@@ -811,16 +894,28 @@ if (fs.existsSync(competitorDir)) {
 
 let compLiRows = [];
 if (fs.existsSync(competitorLiDir)) {
-  const liFiles = fs.readdirSync(competitorLiDir).filter(f => f.toLowerCase().endsWith('.csv')).sort();
+  const liFiles = fs.readdirSync(competitorLiDir).filter(f => /\.(csv|xlsx)$/i.test(f)).sort();
   if (liFiles.length > 0) {
     console.log(`\n── LinkedIn competitor snapshots (${liFiles.length} file(s)) ──`);
     for (const f of liFiles) {
-      const rows = parseCSV(path.join(competitorLiDir, f));
-      console.log(`  ${f}  (${rows.length} rows)`);
-      compLiRows = compLiRows.concat(rows);
+      const full = path.join(competitorLiDir, f);
+      if (f.toLowerCase().endsWith('.xlsx')) {
+        // Raw export straight from LinkedIn's native "Competitors" tab — no manual conversion needed.
+        const { rows, skippedReason } = parseLinkedInRawXlsx(full);
+        if (skippedReason) {
+          console.log(`  ${f}  (skipped — ${skippedReason})`);
+        } else {
+          console.log(`  ${f}  (${rows.length} rows — raw LinkedIn export, ${rows[0] ? rows[0].Month : '?'})`);
+          compLiRows = compLiRows.concat(rows);
+        }
+      } else {
+        const rows = parseCSV(full);
+        console.log(`  ${f}  (${rows.length} rows)`);
+        compLiRows = compLiRows.concat(rows);
+      }
     }
   } else {
-    console.log('\n── No LinkedIn snapshots in ./data/competitors_linkedin/ yet (Q4 2026) ──');
+    console.log('\n── No LinkedIn snapshots in ./data/competitors_linkedin/ yet ──');
   }
 }
 
