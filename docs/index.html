@@ -204,6 +204,7 @@ footer p{margin-top:3px}
       <button class="active" data-cm="eng">Engagements</button>
       <button data-cm="aud">Followers</button>
       <button data-cm="posts">Posts</button>
+      <button data-cm="newFollowers" id="compNewFBtn" style="display:none">Follower growth</button>
     </div>
     <div class="cdiv"></div>
     <span class="clabel">Peer set</span>
@@ -1065,7 +1066,7 @@ const COMP_PEER_COLORS = {
   'IL Raise Your Hand': '#9B4ECA',
 };
 const COMP_OTHER_COLOR = '#B9B5AD';
-const COMP_METRIC_LABELS = { eng: 'Public Engagements', aud: 'Followers', posts: 'Published Posts' };
+const COMP_METRIC_LABELS = { eng: 'Public Engagements', aud: 'Followers', posts: 'Published Posts', newFollowers: 'Follower Growth' };
 
 function compMonthAxis(orgs) {
   // Union of years with any data across selected orgs → ['Jan 2024', ...] up to last month with data
@@ -1121,19 +1122,20 @@ function buildLiCompView(platData, wrap, ph, tableWrap, legendEl, caveat) {
   }
 
   // Total each org's selected metric across all tracked months
-  const totals = {}, postsTotal = {};
+  const totals = {}, postsTotal = {}, monthsTracked = {};
   for (const n of orgNames) {
     const o = platData.orgs[n];
-    let sum = 0, any = false, pTotal = 0;
+    let sum = 0, any = false, pTotal = 0, months = 0;
     for (const y of Object.keys(o.monthly)) {
       (o.monthly[y] || []).forEach(v => {
         if (v == null) return;
-        if (v[metricKey] != null) { sum += v[metricKey]; any = true; }
+        if (v[metricKey] != null) { sum += v[metricKey]; any = true; months++; }
         if (v.posts != null) pTotal += v.posts;
       });
     }
     totals[n] = any ? sum : null;
     postsTotal[n] = pTotal;
+    monthsTracked[n] = months;
   }
 
   const peers = orgNames.filter(n => n !== fund && totals[n] != null);
@@ -1189,12 +1191,14 @@ function buildLiCompView(platData, wrap, ph, tableWrap, legendEl, caveat) {
 
   caveat.innerHTML =
     '<strong>Legacy peer set, uncertain continuity:</strong> this data comes from LinkedIn\u2019s native admin \u201cCompetitors\u201d analytics for a 9-peer list set before LinkedIn capped free Company Pages at tracking just 1 competitor. LinkedIn appears to still be updating this legacy list, but on the free tier we cannot edit, add, or remove peers, and there is no guarantee LinkedIn will continue providing this for free going forward. Treat this series as provisional rather than a guaranteed ongoing feed. A paid LinkedIn Premium Company Page subscription (from $99/month) would allow us to manage the peer list directly.' +
-    (compMetric === 'eng' ? '<br><strong>Basis differs from Facebook/X:</strong> LinkedIn \u201cEngagements\u201d here is reactions + comments only \u2014 no shares field is available, so it is not directly comparable to Facebook/X public engagements (which include shares).' : '');
+    (compMetric === 'eng' ? '<br><strong>Basis differs from Facebook/X:</strong> LinkedIn \u201cEngagements\u201d here is reactions + comments only \u2014 no shares field is available, so it is not directly comparable to Facebook/X public engagements (which include shares).' : '') +
+    (compMetric === 'newFollowers' ? '<br><strong>Note:</strong> this is month-over-month follower change, not a cumulative audience total \u2014 see the Followers toggle for why a total isn\u2019t available.' : '');
   caveat.style.display = 'block';
 
   // Ranking table — every tracked org, all 9 peers plus The Fund
   const allNames = [...orgNames].sort((a, b) => (totals[b] ?? -Infinity) - (totals[a] ?? -Infinity));
-  const metricLabel = compMetric === 'posts' ? 'Posts' : 'Engagements (R+C)';
+  const metricLabel = compMetric === 'posts' ? 'Posts' : compMetric === 'newFollowers' ? 'New followers' : 'Engagements (R+C)';
+  const rateLabel = compMetric === 'newFollowers' ? 'Avg / month' : 'Per post';
   const title = document.getElementById('compLiTableTitle');
   title.textContent = `Total ${metricLabel.toLowerCase()}, all tracked orgs (${labels[0] || ''}\u2013${labels[labels.length - 1] || ''})`;
 
@@ -1202,12 +1206,14 @@ function buildLiCompView(platData, wrap, ph, tableWrap, legendEl, caveat) {
     <th style="padding:6px 4px;font-weight:700">Organization</th>
     <th style="padding:6px 4px;font-weight:700;text-align:right">Posts</th>
     <th style="padding:6px 4px;font-weight:700;text-align:right">${metricLabel}</th>
-    <th style="padding:6px 4px;font-weight:700;text-align:right">Per post</th>
+    <th style="padding:6px 4px;font-weight:700;text-align:right">${rateLabel}</th>
   </tr>`;
   for (const n of allNames) {
     const t = totals[n];
     const p = postsTotal[n];
-    const perPost = (t != null && p) ? (t / p).toFixed(1) : '—';
+    const rate = compMetric === 'newFollowers'
+      ? (t != null && monthsTracked[n] ? (t / monthsTracked[n]).toFixed(1) : '—')
+      : (t != null && p ? (t / p).toFixed(1) : '—');
     let rowStyle = 'border-bottom:1px solid #eee';
     let label = n === fund ? 'The Fund' : n;
     if (n === fund) { rowStyle = 'background:#7E162D;color:#F0EDE7'; label = `<strong>${label}</strong>`; }
@@ -1217,7 +1223,7 @@ function buildLiCompView(platData, wrap, ph, tableWrap, legendEl, caveat) {
       <td style="padding:6px 4px">${label}</td>
       <td style="padding:6px 4px;text-align:right">${p ?? '—'}</td>
       <td style="padding:6px 4px;text-align:right">${t != null ? Math.round(t).toLocaleString() : '—'}</td>
-      <td style="padding:6px 4px;text-align:right">${perPost}</td>
+      <td style="padding:6px 4px;text-align:right">${rate}</td>
     </tr>`;
   }
   document.getElementById('compLiTable').innerHTML = rows;
@@ -1236,6 +1242,13 @@ function buildCompChart() {
 
   const platData = CDATA.platforms[compPlat];
   const orgNames = Object.keys(platData.orgs);
+  const newFBtn = document.getElementById('compNewFBtn');
+  newFBtn.style.display = compPlat === 'li' ? '' : 'none';
+  if (compPlat !== 'li' && compMetric === 'newFollowers') {
+    // Follower growth only exists for LinkedIn — fall back to Engagements for other platforms
+    compMetric = 'eng';
+    document.querySelectorAll('#compMetricSeg button').forEach(b => b.classList.toggle('active', b.dataset.cm === 'eng'));
+  }
 
   // LinkedIn placeholder state (no data loaded at all)
   if (compPlat === 'li' && orgNames.length === 0) {
