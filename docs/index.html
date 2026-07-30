@@ -218,11 +218,15 @@ footer p{margin-top:3px}
     <div class="legend" id="compLegend"></div>
   </div>
   <div class="chart-wrap" id="compChartWrap"><canvas id="compChart"></canvas></div>
+  <div id="compLiTableWrap" style="display:none;margin-top:1rem">
+    <div style="font-size:12px;font-weight:700;color:#471C21;margin-bottom:6px" id="compLiTableTitle"></div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px" id="compLiTable"></table>
+  </div>
   <div id="compPlaceholder" style="display:none;padding:2.2rem 1.5rem;text-align:center;color:#8a6d1f;background:rgba(218,201,155,.18);border:1px dashed rgba(139,105,20,.4);border-radius:8px;font-size:14px;line-height:1.6">
-    <strong>LinkedIn competitor tracking begins Q4 2026.</strong><br>
-    Once the Premium Company Page upgrade is active, upload monthly snapshot CSVs to
+    <strong id="compPlaceholderTitle">No LinkedIn competitor data loaded.</strong><br>
+    <span id="compPlaceholderBody">LinkedIn now caps free Company Pages at tracking 1 competitor (down from 9); ongoing multi-peer tracking requires a paid LinkedIn Premium Company Page subscription (from $99/month). To restore this view, upload monthly snapshot CSVs to
     <code style="background:rgba(255,255,255,.7);padding:1px 5px;border-radius:3px">data/competitors_linkedin/</code>
-    with columns <em>Month, Organization, Followers, New Followers, Posts, Engagements</em> — this view activates automatically on the next rebuild.
+    with columns <em>Month, Organization, Followers, New Followers, Posts, Engagements</em> — this view activates automatically on the next rebuild.</span>
   </div>
 </div>
 
@@ -1098,6 +1102,127 @@ function compSeries(o, minY, maxY, lastM) {
   return out;
 }
 
+function buildLiCompView(platData, wrap, ph, tableWrap, legendEl, caveat) {
+  const metricKey = compMetric; // 'eng' | 'aud' | 'posts'
+  const orgNames = Object.keys(platData.orgs);
+  const fund = CDATA.fund;
+
+  // Followers aren't available in this LinkedIn data (only month-over-month
+  // change was in the export, no cumulative total) — show an explanatory
+  // empty state rather than a flat, misleading chart.
+  if (metricKey === 'aud') {
+    wrap.style.display = 'none'; tableWrap.style.display = 'none'; ph.style.display = 'block';
+    document.getElementById('compPlaceholderTitle').textContent = 'Followers not available for LinkedIn.';
+    document.getElementById('compPlaceholderBody').textContent = 'This LinkedIn export only included month-over-month follower change, not a cumulative total, so a Followers view can\u2019t be built from it. Switch to Engagements or Posts above.';
+    legendEl.innerHTML = ''; caveat.style.display = 'none';
+    document.getElementById('compTitle').textContent = 'LinkedIn — followers not available';
+    if (compChartObj) { compChartObj.destroy(); compChartObj = null; }
+    return;
+  }
+
+  // Total each org's selected metric across all tracked months
+  const totals = {}, postsTotal = {};
+  for (const n of orgNames) {
+    const o = platData.orgs[n];
+    let sum = 0, any = false, pTotal = 0;
+    for (const y of Object.keys(o.monthly)) {
+      (o.monthly[y] || []).forEach(v => {
+        if (v == null) return;
+        if (v[metricKey] != null) { sum += v[metricKey]; any = true; }
+        if (v.posts != null) pTotal += v.posts;
+      });
+    }
+    totals[n] = any ? sum : null;
+    postsTotal[n] = pTotal;
+  }
+
+  const peers = orgNames.filter(n => n !== fund && totals[n] != null);
+  peers.sort((a, b) => totals[b] - totals[a]);
+  const strongest = peers[0];
+  const weakest = peers[peers.length - 1];
+
+  wrap.style.display = ''; ph.style.display = 'none'; tableWrap.style.display = 'block';
+
+  const selected = [fund, strongest, weakest].filter(Boolean);
+  const orgObjs = selected.map(n => platData.orgs[n]);
+  const { labels, minY, maxY, lastM } = compMonthAxis(orgObjs);
+
+  const colorFor = (n) => n === fund ? '#7E162D' : n === strongest ? '#DAC99B' : '#404041';
+  const datasets = selected.map(n => ({
+    label: n === fund ? 'The Fund' : n,
+    data: compSeries(platData.orgs[n], minY, maxY, lastM),
+    borderColor: colorFor(n), backgroundColor: colorFor(n) + '15',
+    borderWidth: n === fund ? 3.5 : 2,
+    borderDash: n === weakest ? [4, 3] : undefined,
+    pointRadius: n === fund ? 3 : 0, pointHoverRadius: 5,
+    tension: .3, spanGaps: false,
+  }));
+
+  document.getElementById('compTitle').textContent =
+    `${COMP_METRIC_LABELS[compMetric]} — The Fund vs. strongest & weakest peer (Monthly)`;
+
+  const ctx = document.getElementById('compChart').getContext('2d');
+  if (compChartObj) { compChartObj.destroy(); compChartObj = null; }
+  compChartObj = new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'nearest', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: c => c.parsed.y == null ? null : ` ${c.dataset.label}: ${fmt(c.parsed.y, 'imp')}` } }
+      },
+      scales: {
+        x: { grid: { color: 'rgba(64,64,65,0.05)' },
+             ticks: { color: '#999', font: { size: 11 }, autoSkip: true, maxTicksLimit: 16 } },
+        y: { beginAtZero: true, grid: { color: 'rgba(64,64,65,0.05)' },
+             ticks: { color: '#999', font: { size: 11 }, callback: v => v >= 1000 ? (v/1000).toFixed(0) + 'K' : v } }
+      }
+    }
+  });
+
+  legendEl.innerHTML =
+    `<span class="litem"><span class="ldot" style="background:#7E162D"></span>The Fund</span>` +
+    `<span class="litem"><span class="ldot" style="background:#DAC99B"></span>Strongest peer: ${strongest || '—'}</span>` +
+    `<span class="litem"><span class="ldot" style="background:#404041"></span>Weakest peer: ${weakest || '—'}</span>`;
+
+  caveat.innerHTML =
+    '<strong>Legacy peer set, uncertain continuity:</strong> this data comes from LinkedIn\u2019s native admin \u201cCompetitors\u201d analytics for a 9-peer list set before LinkedIn capped free Company Pages at tracking just 1 competitor. LinkedIn appears to still be updating this legacy list, but on the free tier we cannot edit, add, or remove peers, and there is no guarantee LinkedIn will continue providing this for free going forward. Treat this series as provisional rather than a guaranteed ongoing feed. A paid LinkedIn Premium Company Page subscription (from $99/month) would allow us to manage the peer list directly.' +
+    (compMetric === 'eng' ? '<br><strong>Basis differs from Facebook/X:</strong> LinkedIn \u201cEngagements\u201d here is reactions + comments only \u2014 no shares field is available, so it is not directly comparable to Facebook/X public engagements (which include shares).' : '');
+  caveat.style.display = 'block';
+
+  // Ranking table — every tracked org, all 9 peers plus The Fund
+  const allNames = [...orgNames].sort((a, b) => (totals[b] ?? -Infinity) - (totals[a] ?? -Infinity));
+  const metricLabel = compMetric === 'posts' ? 'Posts' : 'Engagements (R+C)';
+  const title = document.getElementById('compLiTableTitle');
+  title.textContent = `Total ${metricLabel.toLowerCase()}, all tracked orgs (${labels[0] || ''}\u2013${labels[labels.length - 1] || ''})`;
+
+  let rows = `<tr style="border-bottom:1px solid #DAC99B;color:#404041;text-align:left">
+    <th style="padding:6px 4px;font-weight:700">Organization</th>
+    <th style="padding:6px 4px;font-weight:700;text-align:right">Posts</th>
+    <th style="padding:6px 4px;font-weight:700;text-align:right">${metricLabel}</th>
+    <th style="padding:6px 4px;font-weight:700;text-align:right">Per post</th>
+  </tr>`;
+  for (const n of allNames) {
+    const t = totals[n];
+    const p = postsTotal[n];
+    const perPost = (t != null && p) ? (t / p).toFixed(1) : '—';
+    let rowStyle = 'border-bottom:1px solid #eee';
+    let label = n === fund ? 'The Fund' : n;
+    if (n === fund) { rowStyle = 'background:#7E162D;color:#F0EDE7'; label = `<strong>${label}</strong>`; }
+    else if (n === strongest) { rowStyle = 'background:#DAC99B;color:#471C21'; label = `${label} (strongest)`; }
+    else if (n === weakest) { rowStyle = 'background:#404041;color:#F0EDE7'; label = `${label} (weakest)`; }
+    rows += `<tr style="${rowStyle}">
+      <td style="padding:6px 4px">${label}</td>
+      <td style="padding:6px 4px;text-align:right">${p ?? '—'}</td>
+      <td style="padding:6px 4px;text-align:right">${t != null ? Math.round(t).toLocaleString() : '—'}</td>
+      <td style="padding:6px 4px;text-align:right">${perPost}</td>
+    </tr>`;
+  }
+  document.getElementById('compLiTable').innerHTML = rows;
+}
+
 function buildCompChart() {
   if (!CDATA) return;
   const panel = document.getElementById('compPanel');
@@ -1107,18 +1232,29 @@ function buildCompChart() {
   const legendEl = document.getElementById('compLegend');
   const caveat = document.getElementById('compCaveat');
   const setSeg = document.getElementById('compSetSeg');
+  const tableWrap = document.getElementById('compLiTableWrap');
 
   const platData = CDATA.platforms[compPlat];
   const orgNames = Object.keys(platData.orgs);
 
-  // LinkedIn placeholder state
+  // LinkedIn placeholder state (no data loaded at all)
   if (compPlat === 'li' && orgNames.length === 0) {
-    wrap.style.display = 'none'; ph.style.display = 'block';
+    wrap.style.display = 'none'; ph.style.display = 'block'; tableWrap.style.display = 'none';
+    document.getElementById('compPlaceholderTitle').textContent = 'No LinkedIn competitor data loaded.';
+    document.getElementById('compPlaceholderBody').innerHTML = 'LinkedIn now caps free Company Pages at tracking 1 competitor (down from 9); ongoing multi-peer tracking requires a paid LinkedIn Premium Company Page subscription (from $99/month). To restore this view, upload monthly snapshot CSVs to <code style="background:rgba(255,255,255,.7);padding:1px 5px;border-radius:3px">data/competitors_linkedin/</code> with columns <em>Month, Organization, Followers, New Followers, Posts, Engagements</em> \u2014 this view activates automatically on the next rebuild.';
     legendEl.innerHTML = ''; caveat.style.display = 'none';
-    document.getElementById('compTitle').textContent = 'LinkedIn — awaiting Q4 2026 data';
+    document.getElementById('compTitle').textContent = 'LinkedIn — no competitor data loaded';
     if (compChartObj) { compChartObj.destroy(); compChartObj = null; }
     return;
   }
+
+  // LinkedIn: dedicated strongest/Fund/weakest view + full peer ranking table
+  if (compPlat === 'li') {
+    setSeg.style.opacity = '.35'; setSeg.style.pointerEvents = 'none';
+    buildLiCompView(platData, wrap, ph, tableWrap, legendEl, caveat);
+    return;
+  }
+  tableWrap.style.display = 'none';
   wrap.style.display = ''; ph.style.display = 'none';
 
   // Peer-set toggle only meaningful on Facebook (X tracks 4 peers, LinkedIn is fixed)
@@ -1193,9 +1329,6 @@ function buildCompChart() {
   }
   if (compPlat === 'x') {
     msgs.push('<strong>Coverage:</strong> 4 peer handles tracked. Full-2024 history exists for The Fund and Hope Chicago only; the other three populate from July 2024, with follower tracking from December 2024.');
-  }
-  if (compPlat === 'li' && orgNames.length > 0) {
-    msgs.push('<strong>LinkedIn series begins with the first Premium export (Q4 2026).</strong> The April 2026 manual audit is reported separately (differing metric definitions) \u2014 see deck appendix A9.');
   }
   caveat.innerHTML = msgs.join('<br>');
   caveat.style.display = msgs.length ? 'block' : 'none';
