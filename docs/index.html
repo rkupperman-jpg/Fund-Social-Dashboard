@@ -115,6 +115,16 @@ select:focus{outline:none;border-color:var(--maroon);box-shadow:0 0 0 2px rgba(1
 }
 footer p{margin-top:3px}
 .view{display:flex;flex-direction:column;gap:1.5rem}
+.cmp-block{margin-top:1.4rem;padding-top:1.1rem;border-top:1px solid var(--border)}
+.cmp-hdr{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.6rem;margin-bottom:.8rem}
+.cmp-controls{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+.cmp-controls .btn{padding:5px 10px;font-size:12px}
+.cmp-presets{display:inline-flex;gap:.4rem;margin-left:.3rem}
+.cmp-cov{display:inline-block;margin-left:6px;padding:0 6px;border-radius:9px;font-size:10px;font-weight:700;background:rgba(218,201,155,.45);color:#6b5414;vertical-align:middle}
+.cmp-na{color:#aaa;font-style:italic;font-weight:400}
+.cmp-up{color:#1a8c65}.cmp-dn{color:#b53a2a}
+.cmp-fund td{background:rgba(126,22,45,.07);font-weight:700}
+.cmp-foot{font-size:12px;color:var(--mid);margin-top:.6rem;line-height:1.5}
 .view-tabs{display:flex;background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:5px;gap:4px;box-shadow:var(--shadow)}
 .vtab{flex:1;padding:9px 16px;border:none;border-radius:7px;background:transparent;color:var(--mid);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all .15s}
 .vtab:hover:not(.active){background:var(--light);color:var(--dark)}
@@ -209,8 +219,8 @@ footer p{margin-top:3px}
 <!-- Competitive Landscape -->
 <div class="panel" id="compPanel" style="display:none">
   <div class="sec-title">Competitive Landscape</div>
-  <div class="sec-desc">The Fund vs. tracked Chicago-education peers. All series use Sprout competitor data — <strong>public engagements</strong> (reactions + comments + shares) and followers only; impressions are not available for peers. The Fund&rsquo;s line uses the identical public-engagement basis, so comparisons are like-for-like. <span id="compLastDate"></span></div>
-  <div class="crow" style="margin-bottom:.7rem">
+  <div class="sec-desc">The Fund vs. tracked Chicago-education peers. Facebook uses Sprout competitor data on a <strong>public engagements</strong> basis (reactions + comments + shares); LinkedIn uses LinkedIn&rsquo;s native Competitors export (reactions + comments). The Fund&rsquo;s line always uses the same basis as its peers on that platform. Impressions are not available for peers. <span id="compLastDate"></span></div>
+  <div class="crow" style="margin-bottom:.6rem">
     <span class="clabel">Platform</span>
     <div class="seg" id="compPlatSeg">
       <button class="active" data-cp="fb">Facebook</button>
@@ -225,27 +235,49 @@ footer p{margin-top:3px}
       <button data-cm="newFollowers" id="compNewFBtn" style="display:none">Follower growth</button>
     </div>
     <div class="cdiv"></div>
-    <span class="clabel">Peer set</span>
-    <div class="seg" id="compSetSeg">
-      <button class="active" data-cs="hist">2024 history (4 peers)</button>
-      <button data-cs="all">All tracked peers</button>
+    <span class="clabel">Window</span>
+    <div class="seg" id="compWinSeg">
+      <button class="active" data-cw="quarterly">Quarterly</button>
+      <button data-cw="monthly">Monthly</button>
     </div>
   </div>
-  <div id="compCaveat" style="display:none;font-size:12px;color:#8a6d1f;background:rgba(218,201,155,.22);border:1px solid rgba(218,201,155,.6);border-radius:6px;padding:7px 12px;margin-bottom:.8rem;line-height:1.45"></div>
+  <div class="crow" style="margin-bottom:.7rem">
+    <span class="clabel">Peer set</span>
+    <div class="seg" id="compSetSeg"></div>
+    <div class="cdiv" id="compBasisDiv"></div>
+    <span class="clabel" id="compBasisLbl">Basis</span>
+    <div class="seg" id="compBasisSeg">
+      <button class="active" data-cb="total">Total</button>
+      <button data-cb="perMonth">Per month</button>
+      <button data-cb="perPost" id="compPerPostBtn">Per post</button>
+    </div>
+  </div>
+  <div id="compCaveat" style="display:none;font-size:12px;color:#8a6d1f;background:rgba(218,201,155,.22);border:1px solid rgba(218,201,155,.6);border-radius:6px;padding:7px 12px;margin-bottom:.8rem;line-height:1.5"></div>
   <div class="chart-hdr">
     <div class="chart-title" id="compTitle"></div>
     <div class="legend" id="compLegend"></div>
   </div>
   <div class="chart-wrap" id="compChartWrap"><canvas id="compChart"></canvas></div>
-  <div id="compLiTableWrap" style="display:none;margin-top:1rem">
-    <div style="font-size:12px;font-weight:700;color:#471C21;margin-bottom:6px" id="compLiTableTitle"></div>
-    <table style="width:100%;border-collapse:collapse;font-size:12px" id="compLiTable"></table>
-  </div>
   <div id="compPlaceholder" style="display:none;padding:2.2rem 1.5rem;text-align:center;color:#8a6d1f;background:rgba(218,201,155,.18);border:1px dashed rgba(139,105,20,.4);border-radius:8px;font-size:14px;line-height:1.6">
-    <strong id="compPlaceholderTitle">No LinkedIn competitor data loaded.</strong><br>
-    <span id="compPlaceholderBody">LinkedIn now caps free Company Pages at tracking 1 competitor (down from 9); ongoing multi-peer tracking requires a paid LinkedIn Premium Company Page subscription (from $99/month). To restore this view, upload monthly snapshot CSVs to
-    <code style="background:rgba(255,255,255,.7);padding:1px 5px;border-radius:3px">data/competitors_linkedin/</code>
-    with columns <em>Month, Organization, Followers, New Followers, Posts, Engagements</em> — this view activates automatically on the next rebuild.</span>
+    <strong id="compPlaceholderTitle"></strong><br>
+    <span id="compPlaceholderBody"></span>
+  </div>
+
+  <div class="cmp-block" id="cmpBlock">
+    <div class="cmp-hdr">
+      <div class="chart-title">Compare periods</div>
+      <div class="cmp-controls">
+        <select id="cmpA" aria-label="Period A"></select>
+        <button class="btn btn-g" id="cmpSwap" title="Swap periods">&#8646;</button>
+        <select id="cmpB" aria-label="Period B"></select>
+        <span class="cmp-presets">
+          <button class="btn btn-g" data-preset="prior">vs prior period</button>
+          <button class="btn btn-g" data-preset="yoy">vs same period last year</button>
+        </span>
+      </div>
+    </div>
+    <div class="pt-grid"><table class="pt-table" id="cmpTable"></table></div>
+    <div class="cmp-foot" id="cmpFoot"></div>
   </div>
 </div>
 
@@ -1141,8 +1173,16 @@ function updateSnapMetricBadge() {
 }
 
 // ── COMPETITIVE LANDSCAPE ─────────────────────────────────────────────────────
+// Quarterly by default (Monthly available). Every value is computed per org per
+// period from monthly data; periods with missing months are flagged, and a
+// Per month basis makes partial periods comparable. LinkedIn peer lists come
+// from CDATA.meta.liPeerSets (built from the data), so legacy and current
+// lists are never mixed in one peer comparison.
 const CDATA = window.COMPETITOR_DATA || null;
-let compPlat = 'fb', compMetric = 'eng', compSet = 'hist', compChartObj = null;
+let compPlat = 'fb', compMetric = 'eng', compSet = 'hist', compWin = 'quarterly', compBasis = 'total';
+let compLiSet = null;          // index into CDATA.meta.liPeerSets (null = latest)
+let cmpA = null, cmpB = null;  // selected period keys for Compare periods
+let compChartObj = null;
 
 const COMP_PEER_COLORS = {
   'Kids First Chicago': '#185FA5',
@@ -1152,9 +1192,10 @@ const COMP_PEER_COLORS = {
 };
 const COMP_OTHER_COLOR = '#B9B5AD';
 const COMP_METRIC_LABELS = { eng: 'Public Engagements', aud: 'Followers', posts: 'Published Posts', newFollowers: 'Follower Growth' };
+const COMP_BASIS_LABELS = { total: 'total', perMonth: 'per month', perPost: 'per post' };
 
+// Shared helper (also used by the X Archive tab)
 function compMonthAxis(orgs) {
-  // Union of years with any data across selected orgs → ['Jan 2024', ...] up to last month with data
   let minY = Infinity, maxY = -Infinity, lastM = 0;
   for (const o of orgs) {
     for (const y of Object.keys(o.monthly)) {
@@ -1176,223 +1217,211 @@ function compMonthAxis(orgs) {
   return { labels, minY, maxY, lastM };
 }
 
-function compSeries(o, minY, maxY, lastM) {
+// Month index helpers: idx = year*12 + month(0-11)
+const ymToIdx = ym => { const [y, m] = ym.split('-').map(Number); return y * 12 + (m - 1); };
+const idxLabel = i => MONTHS_S[i % 12] + ' ' + Math.floor(i / 12);
+const idxFull  = i => MONTHS_F[i % 12] + ' ' + Math.floor(i / 12);
+function compOrgMonths(o) {
   const out = [];
-  for (let y = minY; y <= maxY; y++) {
-    const upto = (y === maxY) ? lastM : 11;
-    for (let m = 0; m <= upto; m++) {
-      const v = o.monthly[y]?.[m];
-      out.push(v == null ? null : (v[compMetric] ?? null));
-    }
-  }
+  for (const y of Object.keys(o.monthly)) (o.monthly[y] || []).forEach((v, m) => { if (v) out.push(Number(y) * 12 + m); });
   return out;
 }
+function periodOf(i) {
+  if (compWin === 'monthly') return { key: 'm' + i, label: idxLabel(i), months: [i] };
+  const q = Math.floor(i / 3);
+  return { key: 'q' + q, label: 'Q' + (q % 4 + 1) + ' ' + Math.floor(q / 4), months: [q * 3, q * 3 + 1, q * 3 + 2] };
+}
+function periodRange(loIdx, hiIdx) {
+  const out = [], seen = new Set();
+  for (let i = loIdx; i <= hiIdx; i++) { const p = periodOf(i); if (!seen.has(p.key)) { seen.add(p.key); out.push(p); } }
+  return out;
+}
+function periodByKey(key) {
+  const n = Number(key.slice(1));
+  return key[0] === 'm' ? { key, label: idxLabel(n), months: [n] }
+                        : { key, label: 'Q' + (n % 4 + 1) + ' ' + Math.floor(n / 4), months: [n * 3, n * 3 + 1, n * 3 + 2] };
+}
 
-function buildLiCompView(platData, wrap, ph, tableWrap, legendEl, caveat) {
-  const metricKey = compMetric; // 'eng' | 'aud' | 'posts'
-  const orgNames = Object.keys(platData.orgs);
-  const fund = CDATA.fund;
-
-  // Followers aren't available in this LinkedIn data (only month-over-month
-  // change was in the export, no cumulative total) — show an explanatory
-  // empty state rather than a flat, misleading chart.
-  if (metricKey === 'aud') {
-    wrap.style.display = 'none'; tableWrap.style.display = 'none'; ph.style.display = 'block';
-    document.getElementById('compPlaceholderTitle').textContent = 'Followers not available for LinkedIn.';
-    document.getElementById('compPlaceholderBody').textContent = 'This LinkedIn export only included month-over-month follower change, not a cumulative total, so a Followers view can\u2019t be built from it. Switch to Engagements or Posts above.';
-    legendEl.innerHTML = ''; caveat.style.display = 'none';
-    document.getElementById('compTitle').textContent = 'LinkedIn — followers not available';
-    if (compChartObj) { compChartObj.destroy(); compChartObj = null; }
-    return;
+// One org, one period → { val, cov, n } or null if not tracked at all
+function compStat(o, months, metric = compMetric, basis = compBasis) {
+  if (!o) return null;
+  let cov = 0, sum = 0, posts = 0, eng = 0, aud = null, any = false;
+  for (const i of months) {
+    const v = o.monthly[Math.floor(i / 12)]?.[i % 12];
+    if (!v) continue;
+    cov++; posts += v.posts || 0; eng += v.eng || 0;
+    if (metric === 'aud') { if (v.aud != null) aud = v.aud; }
+    else if (v[metric] != null) { sum += v[metric]; any = true; }
   }
+  if (!cov) return null;
+  let val;
+  if (metric === 'aud') val = aud;
+  else if (!any) val = null;
+  else if (basis === 'perMonth') val = sum / cov;
+  else if (basis === 'perPost') val = posts > 0 ? eng / posts : null;
+  else val = sum;
+  return { val, cov, n: months.length };
+}
+const compFmt = v => v == null ? '—' : (compBasis === 'total' || compMetric === 'aud') ? fmt(v, 'imp') : (Math.abs(v) >= 1000 ? fmt(v, 'imp') : v.toFixed(1));
 
-  // Total each org's selected metric across all tracked months
-  const totals = {}, postsTotal = {}, monthsTracked = {};
-  for (const n of orgNames) {
-    const o = platData.orgs[n];
-    let sum = 0, any = false, pTotal = 0, months = 0;
-    for (const y of Object.keys(o.monthly)) {
-      (o.monthly[y] || []).forEach(v => {
-        if (v == null) return;
-        if (v[metricKey] != null) { sum += v[metricKey]; any = true; months++; }
-        if (v.posts != null) pTotal += v.posts;
-      });
-    }
-    totals[n] = any ? sum : null;
-    postsTotal[n] = pTotal;
-    monthsTracked[n] = months;
+function liSets() { return CDATA?.meta?.liPeerSets || []; }
+function liSetIdx() { const n = liSets().length; return compLiSet == null || compLiSet >= n ? n - 1 : compLiSet; }
+function liSetLabel(ps, isLatest) {
+  const range = isLatest ? `${idxLabel(ymToIdx(ps.from))}\u2013present` : `${idxLabel(ymToIdx(ps.from))}\u2013${idxLabel(ymToIdx(ps.to))}`;
+  return `${isLatest ? 'Current list' : 'Legacy list'} (${range}, ${ps.orgs.filter(o => o !== CDATA.fund).length} peers)`;
+}
+
+// Orgs in scope for the current platform + peer set
+function compScope() {
+  const platData = CDATA.platforms[compPlat];
+  const names = Object.keys(platData.orgs);
+  if (compPlat === 'li') {
+    const sets = liSets();
+    if (!sets.length) return { platData, orgs: names, span: null };
+    const ps = sets[liSetIdx()];
+    return { platData, orgs: ps.orgs.filter(n => platData.orgs[n]), span: [ymToIdx(ps.from), ymToIdx(ps.to)], set: ps };
   }
+  const orgs = names.filter(n => n === CDATA.fund || compSet === 'all' || platData.orgs[n].hist2024);
+  return { platData, orgs, span: null };
+}
 
-  const peers = orgNames.filter(n => n !== fund && totals[n] != null);
-  peers.sort((a, b) => totals[b] - totals[a]);
-  const strongest = peers[0];
-  const weakest = peers[peers.length - 1];
-
-  wrap.style.display = ''; ph.style.display = 'none'; tableWrap.style.display = 'block';
-
-  const selected = [fund, strongest, weakest].filter(Boolean);
-  const orgObjs = selected.map(n => platData.orgs[n]);
-  const { labels, minY, maxY, lastM } = compMonthAxis(orgObjs);
-
-  const colorFor = (n) => n === fund ? '#7E162D' : n === strongest ? '#DAC99B' : '#404041';
-  const datasets = selected.map(n => ({
-    label: n === fund ? 'The Fund' : n,
-    data: compSeries(platData.orgs[n], minY, maxY, lastM),
-    borderColor: colorFor(n), backgroundColor: colorFor(n) + '15',
-    borderWidth: n === fund ? 3.5 : 2,
-    borderDash: n === weakest ? [4, 3] : undefined,
-    pointRadius: n === fund ? 3 : 0, pointHoverRadius: 5,
-    tension: .3, spanGaps: false,
+function renderCompControls() {
+  // Peer-set buttons depend on platform
+  const seg = document.getElementById('compSetSeg');
+  let btns;
+  if (compPlat === 'li') {
+    const sets = liSets(), cur = liSetIdx();
+    btns = sets.map((ps, i) => ({ v: String(i), label: liSetLabel(ps, i === sets.length - 1), on: i === cur })).reverse();
+  } else {
+    btns = [{ v: 'hist', label: '2024 history (4 peers)', on: compSet === 'hist' }, { v: 'all', label: 'All tracked peers', on: compSet === 'all' }];
+  }
+  seg.innerHTML = btns.map(b => `<button class="${b.on ? 'active' : ''}" data-v="${b.v}">${b.label}</button>`).join('');
+  seg.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+    if (compPlat === 'li') compLiSet = Number(b.dataset.v); else compSet = b.dataset.v;
+    buildCompChart();
   }));
+  // Metric availability
+  document.getElementById('compNewFBtn').style.display = compPlat === 'li' ? '' : 'none';
+  if (compPlat !== 'li' && compMetric === 'newFollowers') compMetric = 'eng';
+  document.querySelectorAll('#compMetricSeg button').forEach(b => b.classList.toggle('active', b.dataset.cm === compMetric));
+  // Basis availability: followers is a point-in-time count; per post only for engagements
+  const showBasis = compMetric !== 'aud';
+  ['compBasisSeg', 'compBasisLbl', 'compBasisDiv'].forEach(id => document.getElementById(id).style.display = showBasis ? '' : 'none');
+  document.getElementById('compPerPostBtn').style.display = compMetric === 'eng' ? '' : 'none';
+  if (compMetric !== 'eng' && compBasis === 'perPost') compBasis = 'total';
+  document.querySelectorAll('#compBasisSeg button').forEach(b => b.classList.toggle('active', b.dataset.cb === compBasis));
+  document.querySelectorAll('#compWinSeg button').forEach(b => b.classList.toggle('active', b.dataset.cw === compWin));
+}
 
-  document.getElementById('compTitle').textContent =
-    `${COMP_METRIC_LABELS[compMetric]} — The Fund vs. strongest & weakest peer (Monthly)`;
-
-  const ctx = document.getElementById('compChart').getContext('2d');
+function compShowPlaceholder(title, body) {
+  document.getElementById('compChartWrap').style.display = 'none';
+  document.getElementById('cmpBlock').style.display = 'none';
+  const ph = document.getElementById('compPlaceholder'); ph.style.display = 'block';
+  document.getElementById('compPlaceholderTitle').textContent = title;
+  document.getElementById('compPlaceholderBody').innerHTML = body;
+  document.getElementById('compLegend').innerHTML = '';
+  document.getElementById('compTitle').textContent = '';
   if (compChartObj) { compChartObj.destroy(); compChartObj = null; }
-  compChartObj = new Chart(ctx, {
-    type: 'line',
-    data: { labels, datasets },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      interaction: { mode: 'nearest', intersect: false },
-      plugins: {
-        legend: { display: false },
-        tooltip: { callbacks: { label: c => c.parsed.y == null ? null : ` ${c.dataset.label}: ${fmt(c.parsed.y, 'imp')}` } }
-      },
-      scales: {
-        x: { grid: { color: 'rgba(64,64,65,0.05)' },
-             ticks: { color: '#999', font: { size: 11 }, autoSkip: true, maxTicksLimit: 16 } },
-        y: { beginAtZero: true, grid: { color: 'rgba(64,64,65,0.05)' },
-             ticks: { color: '#999', font: { size: 11 }, callback: v => v >= 1000 ? (v/1000).toFixed(0) + 'K' : v } }
-      }
-    }
-  });
-
-  legendEl.innerHTML =
-    `<span class="litem"><span class="ldot" style="background:#7E162D"></span>The Fund</span>` +
-    `<span class="litem"><span class="ldot" style="background:#DAC99B"></span>Strongest peer: ${strongest || '—'}</span>` +
-    `<span class="litem"><span class="ldot" style="background:#404041"></span>Weakest peer: ${weakest || '—'}</span>`;
-
-  caveat.innerHTML =
-    '<strong>Legacy peer set, uncertain continuity:</strong> this data comes from LinkedIn\u2019s native admin \u201cCompetitors\u201d analytics for a 9-peer list set before LinkedIn capped free Company Pages at tracking just 1 competitor. LinkedIn appears to still be updating this legacy list, but on the free tier we cannot edit, add, or remove peers, and there is no guarantee LinkedIn will continue providing this for free going forward. Treat this series as provisional rather than a guaranteed ongoing feed. A paid LinkedIn Premium Company Page subscription (from $99/month) would allow us to manage the peer list directly.' +
-    (compMetric === 'eng' ? '<br><strong>Basis differs from Facebook:</strong> LinkedIn \u201cEngagements\u201d here is reactions + comments only \u2014 no shares field is available, so it is not directly comparable to Facebook public engagements (which include shares).' : '') +
-    (compMetric === 'newFollowers' ? '<br><strong>Note:</strong> this is month-over-month follower change, not a cumulative audience total \u2014 see the Followers toggle for why a total isn\u2019t available.' : '');
-  caveat.style.display = 'block';
-
-  // Ranking table — every tracked org, all 9 peers plus The Fund
-  const allNames = [...orgNames].sort((a, b) => (totals[b] ?? -Infinity) - (totals[a] ?? -Infinity));
-  const metricLabel = compMetric === 'posts' ? 'Posts' : compMetric === 'newFollowers' ? 'New followers' : 'Engagements (R+C)';
-  const rateLabel = compMetric === 'newFollowers' ? 'Avg / month' : 'Per post';
-  const title = document.getElementById('compLiTableTitle');
-  title.textContent = `Total ${metricLabel.toLowerCase()}, all tracked orgs (${labels[0] || ''}\u2013${labels[labels.length - 1] || ''})`;
-
-  let rows = `<tr style="border-bottom:1px solid #DAC99B;color:#404041;text-align:left">
-    <th style="padding:6px 4px;font-weight:700">Organization</th>
-    <th style="padding:6px 4px;font-weight:700;text-align:right">Posts</th>
-    <th style="padding:6px 4px;font-weight:700;text-align:right">${metricLabel}</th>
-    <th style="padding:6px 4px;font-weight:700;text-align:right">${rateLabel}</th>
-  </tr>`;
-  for (const n of allNames) {
-    const t = totals[n];
-    const p = postsTotal[n];
-    const rate = compMetric === 'newFollowers'
-      ? (t != null && monthsTracked[n] ? (t / monthsTracked[n]).toFixed(1) : '—')
-      : (t != null && p ? (t / p).toFixed(1) : '—');
-    let rowStyle = 'border-bottom:1px solid #eee';
-    let label = n === fund ? 'The Fund' : n;
-    if (n === fund) { rowStyle = 'background:#7E162D;color:#F0EDE7'; label = `<strong>${label}</strong>`; }
-    else if (n === strongest) { rowStyle = 'background:#DAC99B;color:#471C21'; label = `${label} (strongest)`; }
-    else if (n === weakest) { rowStyle = 'background:#404041;color:#F0EDE7'; label = `${label} (weakest)`; }
-    rows += `<tr style="${rowStyle}">
-      <td style="padding:6px 4px">${label}</td>
-      <td style="padding:6px 4px;text-align:right">${p ?? '—'}</td>
-      <td style="padding:6px 4px;text-align:right">${t != null ? Math.round(t).toLocaleString() : '—'}</td>
-      <td style="padding:6px 4px;text-align:right">${rate}</td>
-    </tr>`;
-  }
-  document.getElementById('compLiTable').innerHTML = rows;
 }
 
 function buildCompChart() {
   if (!CDATA) return;
-  const panel = document.getElementById('compPanel');
-  panel.style.display = '';
-  const wrap = document.getElementById('compChartWrap');
-  const ph   = document.getElementById('compPlaceholder');
-  const legendEl = document.getElementById('compLegend');
+  document.getElementById('compPanel').style.display = '';
+  renderCompControls();
   const caveat = document.getElementById('compCaveat');
-  const setSeg = document.getElementById('compSetSeg');
-  const tableWrap = document.getElementById('compLiTableWrap');
+  const { platData, orgs, span, set } = compScope();
 
-  const platData = CDATA.platforms[compPlat];
-  const orgNames = Object.keys(platData.orgs);
-  const newFBtn = document.getElementById('compNewFBtn');
-  newFBtn.style.display = compPlat === 'li' ? '' : 'none';
-  if (compPlat !== 'li' && compMetric === 'newFollowers') {
-    // Follower growth only exists for LinkedIn — fall back to Engagements for other platforms
-    compMetric = 'eng';
-    document.querySelectorAll('#compMetricSeg button').forEach(b => b.classList.toggle('active', b.dataset.cm === 'eng'));
+  if (compPlat === 'li' && !orgs.length) {
+    caveat.style.display = 'none';
+    return compShowPlaceholder('No LinkedIn competitor data loaded.',
+      'Drop LinkedIn&rsquo;s native Competitors export (.xlsx) into <code>data/competitors_linkedin/</code>; this view activates on the next rebuild.');
   }
-
-  // LinkedIn placeholder state (no data loaded at all)
-  if (compPlat === 'li' && orgNames.length === 0) {
-    wrap.style.display = 'none'; ph.style.display = 'block'; tableWrap.style.display = 'none';
-    document.getElementById('compPlaceholderTitle').textContent = 'No LinkedIn competitor data loaded.';
-    document.getElementById('compPlaceholderBody').innerHTML = 'LinkedIn now caps free Company Pages at tracking 1 competitor (down from 9); ongoing multi-peer tracking requires a paid LinkedIn Premium Company Page subscription (from $99/month). To restore this view, upload monthly snapshot CSVs to <code style="background:rgba(255,255,255,.7);padding:1px 5px;border-radius:3px">data/competitors_linkedin/</code> with columns <em>Month, Organization, Followers, New Followers, Posts, Engagements</em> \u2014 this view activates automatically on the next rebuild.';
-    legendEl.innerHTML = ''; caveat.style.display = 'none';
-    document.getElementById('compTitle').textContent = 'LinkedIn — no competitor data loaded';
-    if (compChartObj) { compChartObj.destroy(); compChartObj = null; }
-    return;
+  if (compPlat === 'li' && compMetric === 'aud') {
+    caveat.style.display = 'none';
+    return compShowPlaceholder('Followers not available for LinkedIn.',
+      'LinkedIn&rsquo;s Competitors export only includes follower change for the period, not a cumulative total. Use <strong>Follower growth</strong> instead.');
   }
+  document.getElementById('compPlaceholder').style.display = 'none';
+  document.getElementById('compChartWrap').style.display = '';
+  document.getElementById('cmpBlock').style.display = '';
 
-  // LinkedIn: dedicated strongest/Fund/weakest view + full peer ranking table
+  // Chart range: FB = all data for the orgs in scope; LI = the selected peer list's span
+  const allIdx = orgs.flatMap(n => compOrgMonths(platData.orgs[n]));
+  if (!allIdx.length) return;
+  const lo = span ? span[0] : Math.min(...allIdx), hi = span ? span[1] : Math.max(...allIdx);
+  const periods = periodRange(lo, hi);
+  const labels = periods.map(p => p.label);
+
+  // Highlighting: FB uses fixed peer colours; LI highlights strongest/weakest peer
+  // ranked on a per-month basis (or per post) over the list's own months, so
+  // orgs with a missing month aren't penalised.
+  const fund = CDATA.fund;
+  const peers = orgs.filter(n => n !== fund);
+  let strongest = null, weakest = null;
   if (compPlat === 'li') {
-    setSeg.style.opacity = '.35'; setSeg.style.pointerEvents = 'none';
-    buildLiCompView(platData, wrap, ph, tableWrap, legendEl, caveat);
-    return;
+    const rankMonths = []; for (let i = lo; i <= hi; i++) rankMonths.push(i);
+    const rb = compBasis === 'perPost' ? 'perPost' : 'perMonth';
+    const ranked = peers.map(n => ({ n, v: compStat(platData.orgs[n], rankMonths, compMetric, rb)?.val }))
+                        .filter(r => r.v != null).sort((a, b) => b.v - a.v);
+    strongest = ranked[0]?.n || null; weakest = ranked.length > 1 ? ranked[ranked.length - 1].n : null;
   }
-  tableWrap.style.display = 'none';
-  wrap.style.display = ''; ph.style.display = 'none';
+  const colorFor = n => {
+    if (n === fund) return '#7E162D';
+    if (compPlat === 'li') return n === strongest ? '#DAC99B' : n === weakest ? '#404041' : COMP_OTHER_COLOR;
+    return COMP_PEER_COLORS[n] || COMP_OTHER_COLOR;
+  };
+  const isHighlight = n => n === fund || (compPlat === 'li' ? (n === strongest || n === weakest) : !!COMP_PEER_COLORS[n]);
+  const ordered = [...peers.filter(n => !isHighlight(n)), ...peers.filter(isHighlight), ...(orgs.includes(fund) ? [fund] : [])];
 
-  // Peer-set toggle only meaningful on Facebook (LinkedIn peer set is fixed; X peers live on the X Archive tab)
-  setSeg.parentElement && (setSeg.style.opacity = compPlat === 'fb' ? '1' : '.35');
-  setSeg.style.pointerEvents = compPlat === 'fb' ? 'auto' : 'none';
-
-  const useAll = compPlat !== 'fb' || compSet === 'all';
-  const selected = orgNames.filter(n => {
-    if (n === CDATA.fund) return true;
-    if (compPlat !== 'fb') return true;
-    return compSet === 'all' ? true : platData.orgs[n].hist2024;
-  });
-
-  const orgObjs = selected.map(n => platData.orgs[n]);
-  const { labels, minY, maxY, lastM } = compMonthAxis(orgObjs);
-  if (!labels.length) return;
-
-  // Draw order: gray others → colored peers → The Fund on top
-  const others  = selected.filter(n => n !== CDATA.fund && !COMP_PEER_COLORS[n]);
-  const colored = selected.filter(n => n !== CDATA.fund && COMP_PEER_COLORS[n]);
-  const ordered = [...others, ...colored, CDATA.fund].filter(n => selected.includes(n));
-
+  let anyPartial = false;
   const datasets = ordered.map(n => {
-    const isFund = n === CDATA.fund;
-    const c = isFund ? '#7E162D' : (COMP_PEER_COLORS[n] || COMP_OTHER_COLOR);
+    const stats = periods.map(p => compStat(platData.orgs[n], p.months));
+    const partial = stats.map(st => !!st && st.cov < st.n && compWin === 'quarterly');
+    if (partial.some(Boolean)) anyPartial = true;
+    const c = colorFor(n), hl = isHighlight(n);
+    const baseR = n === fund ? 3 : (hl ? 2 : 0);
     return {
-      label: isFund ? 'The Fund' : n,
-      data: compSeries(platData.orgs[n], minY, maxY, lastM),
+      label: n === fund ? 'The Fund' : n,
+      data: stats.map(st => st ? st.val : null),
+      _cov: stats,
       borderColor: c, backgroundColor: c + '15',
-      borderWidth: isFund ? 3.5 : (COMP_PEER_COLORS[n] ? 2 : 1.4),
-      pointRadius: isFund ? 3 : 0, pointHoverRadius: 5,
-      tension: .3, spanGaps: false,
+      borderWidth: n === fund ? 3.5 : (hl ? 2.2 : 1.3),
+      borderDash: (compPlat === 'li' && n === weakest) ? [4, 3] : undefined,
+      pointRadius: partial.map(pt => pt ? 5 : baseR),
+      pointBackgroundColor: partial.map(pt => pt ? '#fff' : c),
+      pointBorderColor: c, pointBorderWidth: partial.map(pt => pt ? 2 : 1),
+      pointHoverRadius: 6, tension: .3, spanGaps: false,
     };
   });
 
+  const winLbl = compWin === 'quarterly' ? 'Quarterly' : 'Monthly';
+  const basisLbl = compMetric === 'aud' ? 'period end' : COMP_BASIS_LABELS[compBasis];
   document.getElementById('compTitle').textContent =
-    `${COMP_METRIC_LABELS[compMetric]} — The Fund vs. Peers (Monthly)`;
+    `${COMP_METRIC_LABELS[compMetric]} \u2014 The Fund vs. Peers (${winLbl}, ${basisLbl})`;
 
   const ctx = document.getElementById('compChart').getContext('2d');
   if (compChartObj) { compChartObj.destroy(); compChartObj = null; }
+
+  // Only one period so far (e.g. a newly started peer list): a ranked bar chart
+  // reads far better than a single column of dots. Lines return automatically
+  // once a second period exists.
+  if (periods.length === 1) {
+    const bars = datasets.map(d => ({ label: d.label, v: d.data[0], st: d._cov[0], c: d.borderColor }))
+                         .filter(b => b.v != null).sort((a, b) => b.v - a.v);
+    compChartObj = new Chart(ctx, {
+      type: 'bar',
+      data: { labels: bars.map(b => b.label), datasets: [{ data: bars.map(b => b.v),
+        backgroundColor: bars.map(b => b.label === 'The Fund' ? '#7E162D' : (b.c === COMP_OTHER_COLOR ? '#CFCBC3' : b.c)),
+        borderRadius: 4, maxBarThickness: 46 }] },
+      options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => {
+          const st = bars[c.dataIndex].st; const cov = st && st.cov < st.n ? ` (${st.cov} of ${st.n} months)` : '';
+          return ` ${compFmt(c.parsed.x)}${cov}`; } } } },
+        scales: { x: { beginAtZero: true, grid: { color: 'rgba(64,64,65,0.05)' }, ticks: { color: '#999', font: { size: 11 } } },
+                  y: { grid: { display: false }, ticks: { color: '#404041', font: { size: 12 } } } } }
+    });
+    document.getElementById('compTitle').textContent += ` \u2014 ${labels[0]}`;
+  } else
   compChartObj = new Chart(ctx, {
     type: 'line',
     data: { labels, datasets },
@@ -1401,35 +1430,125 @@ function buildCompChart() {
       interaction: { mode: 'nearest', intersect: false },
       plugins: {
         legend: { display: false },
-        tooltip: { callbacks: { label: c => c.parsed.y == null ? null : ` ${c.dataset.label}: ${fmt(c.parsed.y, 'imp')}` } }
+        tooltip: { callbacks: { label: c => {
+          if (c.parsed.y == null) return null;
+          const st = c.dataset._cov[c.dataIndex];
+          const cov = st && st.cov < st.n ? ` (${st.cov} of ${st.n} months)` : '';
+          return ` ${c.dataset.label}: ${compFmt(c.parsed.y)}${cov}`;
+        } } }
       },
       scales: {
-        x: { grid: { color: 'rgba(64,64,65,0.05)' },
-             ticks: { color: '#999', font: { size: 11 }, autoSkip: true, maxTicksLimit: 16 } },
+        x: { grid: { color: 'rgba(64,64,65,0.05)' }, ticks: { color: '#999', font: { size: 11 }, autoSkip: true, maxTicksLimit: 16 } },
         y: { beginAtZero: true, grid: { color: 'rgba(64,64,65,0.05)' },
              ticks: { color: '#999', font: { size: 11 }, callback: v => v >= 1000 ? (v/1000).toFixed(0) + 'K' : v } }
       }
     }
   });
 
-  // Legend: Fund + colored peers (+ gray "other peers" chip in all-mode)
-  let lg = `<span class="litem"><span class="ldot" style="background:#7E162D"></span>The Fund</span>` +
-    colored.map(n => `<span class="litem"><span class="ldot" style="background:${COMP_PEER_COLORS[n]}"></span>${n}</span>`).join('');
-  if (others.length) lg += `<span class="litem"><span class="ldot" style="background:${COMP_OTHER_COLOR}"></span>Other peers (${others.length}) — hover to identify</span>`;
-  legendEl.innerHTML = lg;
+  // Legend
+  const others = ordered.filter(n => n !== fund && !isHighlight(n));
+  let lg = orgs.includes(fund) ? `<span class="litem"><span class="ldot" style="background:#7E162D"></span>The Fund</span>` : '';
+  if (compPlat === 'li') {
+    if (strongest) lg += `<span class="litem"><span class="ldot" style="background:#DAC99B"></span>Strongest peer: ${strongest}</span>`;
+    if (weakest)   lg += `<span class="litem"><span class="ldot" style="background:#404041"></span>Weakest peer: ${weakest}</span>`;
+  } else {
+    lg += peers.filter(n => COMP_PEER_COLORS[n]).map(n => `<span class="litem"><span class="ldot" style="background:${COMP_PEER_COLORS[n]}"></span>${n}</span>`).join('');
+  }
+  if (others.length) lg += `<span class="litem"><span class="ldot" style="background:${COMP_OTHER_COLOR}"></span>Other peers (${others.length}), hover to identify</span>`;
+  if (anyPartial) lg += `<span class="litem"><span class="ldot" style="background:#fff;border:2px solid #888;box-sizing:border-box"></span>Incomplete period</span>`;
+  document.getElementById('compLegend').innerHTML = lg;
 
-  // Caveats — footnote-proof, per platform/metric
-  let msgs = [];
+  // Caveats, generated from the data so they stay accurate as files are added
+  const msgs = [];
   if (compPlat === 'fb') {
     if (compSet === 'all') msgs.push('<strong>Coverage:</strong> most peers were added to Sprout tracking June 5, 2026; only A Better Chicago, Hope Chicago, IL Raise Your Hand, and Kids First Chicago have continuous history to 2024. Lines begin at each org\u2019s first tracked activity.');
     if (compMetric === 'eng') msgs.push('<strong>Note:</strong> The Fund\u2019s Facebook engagements include boosted-post engagement (notably Jul\u2013Oct 2024); peer engagement is organic.');
-    if (compMetric === 'aud') msgs.push('<strong>Followers:</strong> peer follower tracking begins December 2024 for the four legacy peers and June 2026 for all others.');
+    if (compMetric === 'aud') msgs.push('<strong>Followers:</strong> peer follower tracking begins December 2024 for the four legacy peers and June 2026 for all others. Values are the count at period end.');
+  } else {
+    const sets = liSets();
+    if (sets.length > 1) {
+      const latest = sets[sets.length - 1], prev = sets[sets.length - 2];
+      const carried = latest.orgs.filter(o => o !== fund && prev.orgs.includes(o));
+      msgs.push(`<strong>Peer lists:</strong> since ${idxFull(ymToIdx(latest.from))} the peer list is managed through The Fund\u2019s LinkedIn Premium Company Page. The earlier list (${idxLabel(ymToIdx(prev.from))}\u2013${idxLabel(ymToIdx(prev.to))}) was the grandfathered list. Only ${carried.join(', ')} appear on both, so strongest/weakest rankings are made within one list at a time.`);
+    }
+    const chartMonths = new Set(periods.flatMap(p => p.months));
+    const missing = (CDATA.meta.liMissingMonths || []).map(ymToIdx).filter(i => chartMonths.has(i));
+    if (missing.length) msgs.push(`<strong>Missing month:</strong> no LinkedIn export is loaded for ${missing.map(idxFull).join(', ')}, so periods containing it are incomplete.`);
+    const wins = Object.entries(CDATA.meta.liWindows || {}).filter(([ym, w]) => !w.exact).map(([ym, w]) => `${idxLabel(ymToIdx(ym))} figures cover LinkedIn\u2019s ${w.window} window`);
+    if (wins.length) msgs.push(`<strong>Reporting window:</strong> ${wins.join('; ')} (assigned to the month holding most of its days).`);
+    if (compMetric === 'eng') msgs.push('<strong>Basis differs from Facebook:</strong> LinkedIn \u201cEngagements\u201d here is reactions + comments only (no shares field in LinkedIn\u2019s export), so it is not directly comparable to Facebook public engagements.');
+    if (compMetric === 'newFollowers') msgs.push('<strong>Note:</strong> follower growth is new followers gained in the period, not a cumulative audience total.');
   }
-  if (compPlat === 'x') {
-    msgs.push('<strong>Coverage:</strong> 4 peer handles tracked. Full-2024 history exists for The Fund and Hope Chicago only; the other three populate from July 2024, with follower tracking from December 2024.');
-  }
+  if (anyPartial && compBasis === 'total' && compMetric !== 'aud') msgs.push('<strong>Hollow points</strong> mark quarters with fewer than 3 months of data. Their totals are not comparable to full quarters; switch Basis to <strong>Per month</strong> for a like-for-like view.');
   caveat.innerHTML = msgs.join('<br>');
   caveat.style.display = msgs.length ? 'block' : 'none';
+
+  renderCompare(platData, orgs);
+}
+
+// ── Compare periods ──────────────────────────────────────────────────────────
+function renderCompare(platData, orgs) {
+  // Periods where at least one org in scope has data (any peer list), newest first.
+  // Empty periods (e.g. a month with no LinkedIn export) are left out of the pickers.
+  const allIdx = orgs.flatMap(n => compOrgMonths(platData.orgs[n]));
+  if (!allIdx.length) return;
+  const have = new Set(allIdx);
+  const periods = periodRange(Math.min(...allIdx), Math.max(...allIdx)).reverse()
+    .filter(p => p.months.some(i => have.has(i)));
+  const keys = periods.map(p => p.key);
+  if (!keys.includes(cmpB)) cmpB = keys[0];
+  if (!keys.includes(cmpA) || cmpA === cmpB) cmpA = keys[keys.indexOf(cmpB) + 1] || keys[0];
+  const opt = sel => periods.map(p => `<option value="${p.key}"${p.key === sel ? ' selected' : ''}>${p.label}</option>`).join('');
+  document.getElementById('cmpA').innerHTML = opt(cmpA);
+  document.getElementById('cmpB').innerHTML = opt(cmpB);
+
+  const A = periodByKey(cmpA), B = periodByKey(cmpB);
+  const fund = CDATA.fund;
+  const rows = orgs.map(n => ({ n, a: compStat(platData.orgs[n], A.months), b: compStat(platData.orgs[n], B.months) }));
+  rows.sort((x, y) => (x.n === fund ? -1 : y.n === fund ? 1 : (y.b?.val ?? -Infinity) - (x.b?.val ?? -Infinity)));
+
+  const basisLbl = compMetric === 'aud' ? 'at period end' : COMP_BASIS_LABELS[compBasis];
+  const cell = st => {
+    if (!st) return '<span class="cmp-na">not tracked</span>';
+    const cov = st.cov < st.n ? `<span class="cmp-cov" title="${st.cov} of ${st.n} months have data">${st.cov}/${st.n} mo</span>` : '';
+    return (st.val == null ? '<span class="cmp-na">—</span>' : compFmt(st.val)) + cov;
+  };
+  let covMismatch = false, anyPartial = false;
+  let html = `<thead><tr><th>Organization</th><th>${A.label}</th><th>${B.label}</th><th>Change</th><th>% change</th></tr></thead><tbody>`;
+  for (const r of rows) {
+    let chg = '<span class="cmp-na">—</span>', pct = '<span class="cmp-na">—</span>';
+    if ((r.a && r.a.cov < r.a.n) || (r.b && r.b.cov < r.b.n)) anyPartial = true;
+    if (r.a?.val != null && r.b?.val != null) {
+      const mismatch = compBasis === 'total' && compMetric !== 'aud' && (r.a.cov / r.a.n !== r.b.cov / r.b.n);
+      if (mismatch) { covMismatch = true; chg = pct = '<span class="cmp-na">coverage differs*</span>'; }
+      else {
+        const d = r.b.val - r.a.val, cls = d > 0 ? 'cmp-up' : d < 0 ? 'cmp-dn' : '';
+        chg = `<span class="${cls}">${d > 0 ? '+' : ''}${compFmt(d)}</span>`;
+        pct = r.a.val !== 0 ? `<span class="${cls}">${d > 0 ? '+' : ''}${(d / Math.abs(r.a.val) * 100).toFixed(1)}%</span>` : '<span class="cmp-na">—</span>';
+      }
+    }
+    html += `<tr class="${r.n === fund ? 'cmp-fund' : ''}"><td>${r.n === fund ? 'The Fund' : r.n}</td><td>${cell(r.a)}</td><td>${cell(r.b)}</td><td>${chg}</td><td>${pct}</td></tr>`;
+  }
+  html += '</tbody>';
+  document.getElementById('cmpTable').innerHTML = html;
+
+  const foot = [];
+  const footEl = document.getElementById('cmpFoot');
+  if (footEl.dataset.presetMiss === '1') { foot.push('<strong>No data for that comparison period, so the nearest earlier period is shown.</strong>'); footEl.dataset.presetMiss = ''; }
+  foot.push(`${COMP_METRIC_LABELS[compMetric]}, ${basisLbl}. Rows are the orgs in the selected peer set; The Fund is pinned first, then peers by ${B.label}.`);
+  if (anyPartial) foot.push('Badges like <span class="cmp-cov">2/3 mo</span> mark periods with missing months.');
+  if (covMismatch) foot.push('*Totals over periods with different coverage aren\u2019t compared; switch Basis to <strong>Per month</strong> to see the change like-for-like.');
+  document.getElementById('cmpFoot').innerHTML = foot.join(' ');
+}
+
+function cmpPreset(kind) {
+  const B = cmpB; if (!B) return;
+  const n = Number(B.slice(1)), t = B[0];
+  const target = kind === 'prior' ? n - 1 : n - (t === 'm' ? 12 : 4);
+  cmpA = t + target;
+  const opts = [...document.getElementById('cmpA').options].map(o => o.value);
+  document.getElementById('cmpFoot').dataset.presetMiss = opts.includes(cmpA) ? '' : '1';
+  buildCompChart();
 }
 
 function compSegInit(id, attr, cb) {
@@ -1717,9 +1836,15 @@ renderSnaps();
 renderSnapTable();
 updateAll();
 if (CDATA) {
-  compSegInit('compPlatSeg',   'cp', v => { compPlat = v; });
+  // LinkedIn arrives one export per month, so gaps are likely: default it to Per month.
+  compSegInit('compPlatSeg',   'cp', v => { compPlat = v; cmpA = cmpB = null; compBasis = v === 'li' ? 'perMonth' : 'total'; });
   compSegInit('compMetricSeg', 'cm', v => { compMetric = v; });
-  compSegInit('compSetSeg',    'cs', v => { compSet = v; });
+  compSegInit('compWinSeg',    'cw', v => { compWin = v; cmpA = cmpB = null; });
+  compSegInit('compBasisSeg',  'cb', v => { compBasis = v; });
+  document.getElementById('cmpA').addEventListener('change', e => { cmpA = e.target.value; buildCompChart(); });
+  document.getElementById('cmpB').addEventListener('change', e => { cmpB = e.target.value; buildCompChart(); });
+  document.getElementById('cmpSwap').addEventListener('click', () => { [cmpA, cmpB] = [cmpB, cmpA]; buildCompChart(); });
+  document.querySelectorAll('.cmp-presets button').forEach(b => b.addEventListener('click', () => cmpPreset(b.dataset.preset)));
   buildCompChart();
 }
 if (location.hash === '#x-archive') showView('xarchive');
