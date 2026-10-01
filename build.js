@@ -638,6 +638,10 @@ window.INFLUENCER_DATA = ${JSON.stringify(infData)};
 //   which differs from Facebook/X's public-engagements basis; see the in-app caveat.
 //   New monthly files can be dropped in as the raw .xlsx export directly — no
 //   manual conversion needed, see parseLinkedInRawXlsx() above.
+//   Update (Oct 2026): The Fund now has a LinkedIn Premium Company Page and manages
+//   its own competitor list. The first export on the new list covers Sep 2026. The
+//   build detects peer-list changes automatically (meta.liPeerSets) so the dashboard
+//   never mixes the legacy and current lists in one peer comparison.
 
 // Parses a raw LinkedIn native "Competitors" tab export (.xlsx), no manual
 // conversion needed. Expected shape:
@@ -655,17 +659,40 @@ function parseLinkedInRawXlsx(filePath) {
   if (!grid.length) return { rows: [], skippedReason: 'empty sheet' };
 
   const parseDate = (v) => {
-    if (v instanceof Date) return { y: v.getFullYear(), m: v.getMonth() };
+    if (v instanceof Date) return new Date(v.getFullYear(), v.getMonth(), v.getDate());
     const mm = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(String(v || '').trim());
-    return mm ? { y: Number(mm[3]), m: Number(mm[1]) - 1 } : null;
+    return mm ? new Date(Number(mm[3]), Number(mm[1]) - 1, Number(mm[2])) : null;
   };
   const s = parseDate(grid[0] && grid[0][0]);
   const e = parseDate(grid[0] && grid[0][1]);
   if (!s || !e) return { rows: [], skippedReason: `couldn't read a date range from row 1 ("${grid[0]}")` };
-  if (s.y !== e.y || s.m !== e.m) {
-    return { rows: [], skippedReason: `row-1 range spans more than one month (${grid[0][0]} \u2192 ${grid[0][1]}) \u2014 looks like a multi-month aggregate export, not a single monthly one; upload the individual monthly export instead` };
+  const fmtD = d => `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
+  const DAY = 86400000;
+  const spanDays = Math.round((e - s) / DAY) + 1;
+  // Exact calendar month (1st through last day)?
+  const exact = s.getDate() === 1 && e.getFullYear() === s.getFullYear() && e.getMonth() === s.getMonth() &&
+                new Date(e.getFullYear(), e.getMonth(), e.getDate() + 1).getDate() === 1;
+  let y, m;
+  if (s.getFullYear() === e.getFullYear() && s.getMonth() === e.getMonth()) {
+    y = s.getFullYear(); m = s.getMonth();
+  } else if (spanDays <= 35) {
+    // Rolling ~30-day window (e.g. LinkedIn's "last 30 days", 8/31 -> 9/29):
+    // assign it to the calendar month holding most of its days, and record the
+    // actual window so the dashboard can footnote it.
+    const counts = {};
+    for (let d = new Date(s); d <= e; d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)) {
+      const k = d.getFullYear() + ':' + d.getMonth(); counts[k] = (counts[k] || 0) + 1;
+    }
+    const ranked = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+    if (ranked.length > 1 && ranked[0][1] === ranked[1][1]) {
+      return { rows: [], skippedReason: `row-1 window (${grid[0][0]} \u2192 ${grid[0][1]}) splits evenly across two months, so it can't be assigned to one; export a single calendar month instead` };
+    }
+    [y, m] = ranked[0][0].split(':').map(Number);
+  } else {
+    return { rows: [], skippedReason: `row-1 range spans ${spanDays} days (${grid[0][0]} \u2192 ${grid[0][1]}) \u2014 looks like a multi-month aggregate export, not a single monthly one; upload the individual monthly export instead` };
   }
-  const month = s.y + '-' + String(s.m + 1).padStart(2, '0');
+  const month = y + '-' + String(m + 1).padStart(2, '0');
+  const windowLabel = `${fmtD(s)}\u2013${fmtD(e)}`;
 
   const headerRow = grid[1] || [];
   const idx = {};
@@ -689,9 +716,11 @@ function parseLinkedInRawXlsx(filePath) {
       'New Followers': newFIdx != null ? row[newFIdx] : '',
       Posts: postsIdx != null ? row[postsIdx] : 0,
       Engagements: comments + reactions, // reactions + comments only; LinkedIn's native export has no shares field
+      Window: windowLabel,
+      Exact: exact,
     });
   }
-  return { rows, skippedReason: null };
+  return { rows, skippedReason: null, month, window: windowLabel, exact };
 }
 
 const HISTORY_2024 = new Set([
@@ -810,6 +839,7 @@ function buildCompetitorData(perfRows, liRows) {
   // ── LinkedIn monthly snapshots ────────────────────────────────────────────────
   // liRows: array of parsed rows across all files, later files win on (month, org)
   const liByKey = {};
+  const liWindows = {};   // 'YYYY-MM' -> { window, exact }
   for (const row of liRows) {
     // Header names are matched case-insensitively and loosely
     const get = (names) => {
@@ -837,8 +867,14 @@ function buildCompetitorData(perfRows, liRows) {
     }
     if (y == null || m == null || m < 0) continue;
 
-    liByKey[y + ':' + m + ':' + org] = {
-      y, m, org,
+    const key = y + ':' + m + ':' + org;
+    const exact = row.Exact !== false; // CSV rows (manual) are treated as calendar months
+    // A true calendar-month export always beats a rolling-window export for the same month
+    if (liByKey[key] && liByKey[key].exact && !exact) continue;
+    const ymKey = y + '-' + String(m + 1).padStart(2, '0');
+    if (row.Window && (!liWindows[ymKey] || !liWindows[ymKey].exact || exact)) liWindows[ymKey] = { window: row.Window, exact };
+    liByKey[key] = {
+      y, m, org, exact,
       aud:   compNum(get(['followers', 'totalfollowers', 'audience'])),
       newF:  compNum(get(['newfollowers', 'followergrowth'])),
       posts: compNum(get(['posts', 'totalposts', 'publishedposts'])),
@@ -857,6 +893,38 @@ function buildCompetitorData(perfRows, liRows) {
     if (!o.firstActivity || ym < o.firstActivity) { o.firstActivity = ym; o.firstAudience = ym; }
   }
 
+  // ── LinkedIn peer sets, derived from the data ─────────────────────────────────
+  // A new peer set starts in any month where an org appears that the current set
+  // hasn't tracked (e.g. the Sep 2026 switch from the grandfathered 9-peer list to
+  // the Premium-managed list). An org dropping out of a month (e.g. Advance
+  // Illinois missing from the Jul 2026 export) does NOT start a new set; it just
+  // shows as a coverage gap for that org. Missing months don't start a set either.
+  const liMonths = {};
+  for (const r of Object.values(liByKey)) {
+    const ym = r.y + '-' + String(r.m + 1).padStart(2, '0');
+    (liMonths[ym] = liMonths[ym] || new Set()).add(r.org);
+  }
+  const liPeerSets = [];
+  for (const ym of Object.keys(liMonths).sort()) {
+    const monthOrgs = [...liMonths[ym]];
+    const last = liPeerSets[liPeerSets.length - 1];
+    if (last && monthOrgs.every(o => last.orgs.includes(o))) { last.to = ym; last.months.push(ym); }
+    else liPeerSets.push({ from: ym, to: ym, months: [ym], orgs: monthOrgs });
+  }
+  liPeerSets.forEach(ps => ps.orgs.sort());
+  const allLiMonths = Object.keys(liMonths).sort();
+  const liMissingMonths = [];
+  if (allLiMonths.length) {
+    let [cy, cm] = allLiMonths[0].split('-').map(Number);
+    const end = allLiMonths[allLiMonths.length - 1];
+    while (true) {
+      const k = cy + '-' + String(cm).padStart(2, '0');
+      if (k > end) break;
+      if (!liMonths[k]) liMissingMonths.push(k);
+      cm++; if (cm > 12) { cm = 1; cy++; }
+    }
+  }
+
   return {
     fund: FUND_ORG_NAME,
     platforms,
@@ -864,7 +932,10 @@ function buildCompetitorData(perfRows, liRows) {
       builtAt: new Date().toISOString(),
       lastDate: lastDateSeen,
       liActive: Object.keys(platforms.li.orgs).length > 0,
-      notes: 'Facebook/X: public engagements (reactions+comments+shares). LinkedIn: reactions+comments only, no shares field available; one-time native export, Aug 2025\u2013Jun 2026. Series masked before each org\u2019s first tracked activity.',
+      liPeerSets,
+      liWindows,
+      liMissingMonths,
+      notes: 'Facebook/X: public engagements (reactions+comments+shares). LinkedIn: reactions+comments only, no shares field available; LinkedIn native Competitors exports, one per month. Series masked before each org\u2019s first tracked activity.',
     },
   };
 }
@@ -906,11 +977,11 @@ if (fs.existsSync(competitorLiDir)) {
       const full = path.join(competitorLiDir, f);
       if (f.toLowerCase().endsWith('.xlsx')) {
         // Raw export straight from LinkedIn's native "Competitors" tab — no manual conversion needed.
-        const { rows, skippedReason } = parseLinkedInRawXlsx(full);
+        const { rows, skippedReason, window: win, exact } = parseLinkedInRawXlsx(full);
         if (skippedReason) {
           console.log(`  ${f}  (skipped — ${skippedReason})`);
         } else {
-          console.log(`  ${f}  (${rows.length} rows — raw LinkedIn export, ${rows[0] ? rows[0].Month : '?'})`);
+          console.log(`  ${f}  (${rows.length} rows — raw LinkedIn export, ${rows[0] ? rows[0].Month : '?'}${exact ? '' : `, rolling window ${win} assigned by majority of days`})`);
           compLiRows = compLiRows.concat(rows);
         }
       } else {
