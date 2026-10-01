@@ -114,6 +114,18 @@ select:focus{outline:none;border-color:var(--maroon);box-shadow:0 0 0 2px rgba(1
   margin:0 1px;
 }
 footer p{margin-top:3px}
+.view{display:flex;flex-direction:column;gap:1.5rem}
+.view-tabs{display:flex;background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:5px;gap:4px;box-shadow:var(--shadow)}
+.vtab{flex:1;padding:9px 16px;border:none;border-radius:7px;background:transparent;color:var(--mid);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all .15s}
+.vtab:hover:not(.active){background:var(--light);color:var(--dark)}
+.vtab.active{background:var(--maroon);color:var(--white);box-shadow:0 1px 3px rgba(0,0,0,.18)}
+.vtab.active.vtab-x{background:#C0392B}
+.vtab-tag{font-size:11px;font-weight:600;padding:1px 8px;border-radius:10px;background:rgba(64,64,65,.08);color:var(--mid)}
+.vtab.active .vtab-tag{background:rgba(255,255,255,.2);color:var(--white)}
+.sunset-banner{background:var(--white);border:1px solid var(--border);border-left:4px solid #C0392B;border-radius:0 var(--radius) var(--radius) 0;padding:1rem 1.25rem;box-shadow:var(--shadow);font-size:14px;line-height:1.55;color:var(--dark)}
+.sunset-banner h2{font-family:Georgia,serif;font-weight:normal;font-size:18px;color:#C0392B;margin-bottom:.3rem}
+.sunset-banner p+p{margin-top:.4rem}
+.sunset-banner .sb-meta{font-size:12px;color:var(--mid)}
 @media(max-width:640px){main{padding:1rem} .seg button{padding:5px 8px;font-size:12px} .yrbtn{padding:4px 10px;font-size:12px} .chart-wrap{height:240px}}
 </style>
 </head>
@@ -125,10 +137,18 @@ footer p{margin-top:3px}
       <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
       Heather's Posts
     </a>
-    <div class="hbadge">X &middot; Facebook &middot; LinkedIn</div>
+    <div class="hbadge">Facebook &middot; LinkedIn</div>
   </div>
 </header>
 <main>
+
+<!-- View tabs -->
+<div class="view-tabs" role="tablist">
+  <button class="vtab active" data-view="main" role="tab">Facebook &amp; LinkedIn</button>
+  <button class="vtab vtab-x" data-view="xarchive" role="tab">X Archive <span class="vtab-tag">Sunset Q3 2026</span></button>
+</div>
+
+<div class="view" id="view-main">
 
 <!-- Controls -->
 <div class="panel controls">
@@ -163,7 +183,6 @@ footer p{margin-top:3px}
     <span class="clabel">Platform</span>
     <div class="plat-wrap" id="platWrap">
       <button class="platbtn active" data-p="all">All</button>
-      <button class="platbtn" data-p="x">X</button>
       <button class="platbtn" data-p="fb">Facebook</button>
       <button class="platbtn" data-p="li">LinkedIn</button>
     </div>
@@ -174,7 +193,7 @@ footer p{margin-top:3px}
 <div id="cardArea"></div>
 
 <!-- Note -->
-<div class="note">&#9432; Facebook impressions in July&ndash;October 2024 were predominantly paid (98%+ of views). Use the new <strong>Compare Platforms</strong> view to see Facebook, LinkedIn, and X on one trendline &mdash; Facebook defaults to organic impressions there so the comparison stays like-for-like. For The Fund&rsquo;s own paid vs. organic detail, select <strong>Facebook</strong> platform and <strong>Impressions</strong> metric to use the Organic / Paid / Total toggle.</div>
+<div class="note">&#9432; Facebook impressions in July&ndash;October 2024 were predominantly paid (98%+ of views). Use the <strong>Compare Platforms</strong> view to see Facebook and LinkedIn on one trendline &mdash; Facebook defaults to organic impressions there so the comparison stays like-for-like. For The Fund&rsquo;s own paid vs. organic detail, select <strong>Facebook</strong> platform and <strong>Impressions</strong> metric to use the Organic / Paid / Total toggle.</div>
 
 <!-- Chart -->
 <div class="panel">
@@ -195,7 +214,6 @@ footer p{margin-top:3px}
     <span class="clabel">Platform</span>
     <div class="seg" id="compPlatSeg">
       <button class="active" data-cp="fb">Facebook</button>
-      <button data-cp="x">X</button>
       <button data-cp="li">LinkedIn</button>
     </div>
     <div class="cdiv"></div>
@@ -234,7 +252,7 @@ footer p{margin-top:3px}
 <!-- Period Totals -->
 <div class="panel">
   <div class="sec-title">Period Totals — The Fund’s Accounts</div>
-  <div class="sec-desc">The Fund’s own LinkedIn, Facebook, and X performance (Sprout profile data — no competitor figures). Select any week, month, quarter, or year to see a full breakdown of all metrics across every platform.</div>
+  <div class="sec-desc">The Fund’s own LinkedIn and Facebook performance (Sprout profile data — no competitor figures). X history is on the X Archive tab. Select any week, month, quarter, or year to see a full breakdown of all metrics across every platform.</div>
   <div class="pt-controls">
     <select id="ptGran" onchange="ptGranChange()">
       <option value="weekly">Week</option>
@@ -268,9 +286,77 @@ footer p{margin-top:3px}
   <div id="snapArea"></div>
 </div>
 
+</div><!-- /view-main -->
+
+<!-- ══ X ARCHIVE (sunset Q3 2026) ══ -->
+<div class="view" id="view-xarchive" style="display:none">
+
+<div class="sunset-banner">
+  <h2>X was officially sunset in Q3 2026</h2>
+  <p>The Fund no longer posts to X. This tab preserves The Fund&rsquo;s historical X performance for reference. X is excluded from every figure on the Facebook &amp; LinkedIn tab, including All Platforms totals.</p>
+  <p class="sb-meta" id="xaMeta"></p>
+  <p class="sb-meta">Heather&rsquo;s personal X history is archived on her page: <a href="influencer.html#x-archive" style="color:var(--maroon);font-weight:600">Heather&rsquo;s X Archive</a></p>
+</div>
+
+<div class="panel controls">
+  <div class="crow">
+    <span class="clabel">Metric</span>
+    <div class="seg" id="xaMetricSeg">
+      <button class="active" data-m="imp">Impressions</button>
+      <button data-m="eng">Engagements</button>
+      <button data-m="rate">Eng. Rate</button>
+      <button data-m="aud">Audience</button>
+    </div>
+    <div class="cdiv"></div>
+    <span class="clabel">Granularity</span>
+    <div class="seg" id="xaGranSeg">
+      <button class="active" data-g="monthly">Monthly</button>
+      <button data-g="quarterly">Quarterly</button>
+      <button data-g="annual">Annual</button>
+    </div>
+  </div>
+</div>
+
+<div id="xaCards"></div>
+
+<div class="panel">
+  <div class="chart-hdr">
+    <div class="chart-title" id="xaChartTitle"></div>
+    <div class="legend"><span class="litem"><span class="ldot" style="background:#C0392B"></span>X (The Fund)</span></div>
+  </div>
+  <div class="chart-wrap"><canvas id="xaChart"></canvas></div>
+</div>
+
+<div class="panel">
+  <div class="sec-title">Annual Summary — The Fund on X</div>
+  <div class="sec-desc">Annual totals for each year The Fund was active on X (Sprout profile data). Partial years are labeled with their months; the final year ends at the sunset.</div>
+  <div id="xaTable"></div>
+</div>
+
+<div class="panel" id="xaCompPanel" style="display:none">
+  <div class="sec-title">Competitive Landscape on X (archived)</div>
+  <div class="sec-desc">The Fund vs. tracked Chicago-education peers on X, using Sprout competitor data on a <strong>public engagements</strong> basis (reactions + comments + shares) for both sides.</div>
+  <div class="crow" style="margin-bottom:.7rem">
+    <span class="clabel">Metric</span>
+    <div class="seg" id="xaCompMetricSeg">
+      <button class="active" data-cm="eng">Engagements</button>
+      <button data-cm="aud">Followers</button>
+      <button data-cm="posts">Posts</button>
+    </div>
+  </div>
+  <div id="xaCompCaveat" style="font-size:12px;color:#8a6d1f;background:rgba(218,201,155,.22);border:1px solid rgba(218,201,155,.6);border-radius:6px;padding:7px 12px;margin-bottom:.8rem;line-height:1.45"></div>
+  <div class="chart-hdr">
+    <div class="chart-title" id="xaCompTitle"></div>
+    <div class="legend" id="xaCompLegend"></div>
+  </div>
+  <div class="chart-wrap"><canvas id="xaCompChart"></canvas></div>
+</div>
+
+</div><!-- /view-xarchive -->
+
 </main>
 <footer>
-  Data sourced from Sprout Social &mdash; X, Facebook, and LinkedIn &middot; The Chicago Public Education Fund
+  Data sourced from Sprout Social &mdash; Facebook and LinkedIn (X archived after Q3 2026 sunset) &middot; The Chicago Public Education Fund
   <p>Upload updated CSV exports to refresh all data. <span id="lastDateNote">Loading…</span></p>
 </footer>
 
@@ -346,7 +432,7 @@ function annualSummary(yr, m, plt) {
 const PLAT_COLORS = { all: '#404041', x: '#C0392B', fb: '#1877F2', li: '#1D9E75' };
 const PLAT_TEXT   = { all: '#fff', x: '#fff', fb: '#fff', li: '#fff' };
 const PLAT_LABELS = { x: 'X', fb: 'Facebook', li: 'LinkedIn' };
-const COMPARE_PLATFORMS = ['fb', 'li', 'x'];
+const COMPARE_PLATFORMS = ['fb', 'li']; // X sunset Q3 2026: see X Archive tab
 
 // Metric key for the Compare Platforms view: Facebook impressions default to
 // organic-only so the Jul–Oct 2024 paid campaign (~1.37M paid views) doesn't
@@ -723,13 +809,13 @@ function buildComparePlatformsChart(sorted) {
     let msg = '';
     const covers2024 = activeYears.has(2024);
     if (metric === 'imp' && fbImpMode === 'organic') {
-      msg = '<strong>Facebook shown as organic impressions only.</strong> Excludes ~1.37M paid views from the Jul–Oct 2024 paid campaign so platforms are compared on the same organic basis. X and LinkedIn had no paid impressions in this period. Toggle above to include paid.';
+      msg = '<strong>Facebook shown as organic impressions only.</strong> Excludes ~1.37M paid views from the Jul–Oct 2024 paid campaign so platforms are compared on the same organic basis. LinkedIn had no paid impressions in this period. Toggle above to include paid.';
     } else if (metric === 'imp' && fbImpMode === 'total') {
       msg = '<strong>Facebook includes paid impressions.</strong> Jul–Oct 2024 Facebook views were 98%+ paid (~1.37M), which dominates the scale and is not an organic comparison. Switch to Organic for a like-for-like view.';
     } else if (metric === 'rate' && covers2024) {
       msg = '<strong>Note on Facebook engagement rate, Jul–Oct 2024:</strong> paid impressions inflate the denominator and boosted-post engagement inflates the numerator during the paid campaign, so FB rate in those months is not comparable to organic-only platforms.';
     } else if (metric === 'eng' && covers2024) {
-      msg = '<strong>Note:</strong> Facebook engagements during Jul–Oct 2024 include engagement on boosted posts; X and LinkedIn engagements are fully organic.';
+      msg = '<strong>Note:</strong> Facebook engagements during Jul–Oct 2024 include engagement on boosted posts; LinkedIn engagements are fully organic.';
     }
     cav.innerHTML = msg;
     cav.style.display = msg ? 'block' : 'none';
@@ -801,7 +887,6 @@ function renderPeriodTable() {
 
   const platforms = [
     { key:'all', label:'All Platforms' },
-    { key:'x',   label:'X' },
     { key:'fb',  label:'Facebook' },
     { key:'li',  label:'LinkedIn' }
   ];
@@ -933,7 +1018,7 @@ function renderSnapTable() {
   }
   const platforms = metric === 'aud'
     ? [{ key:'all', label:'All Platforms' }]
-    : [{ key:'all', label:'All Platforms' }, { key:'x', label:'X' }, { key:'fb', label:'Facebook' }, { key:'li', label:'LinkedIn' }];
+    : [{ key:'all', label:'All Platforms' }, { key:'fb', label:'Facebook' }, { key:'li', label:'LinkedIn' }];
   let html = `<div class="snap-tbl-wrap"><table class="snap-tbl">
     <thead><tr><th>Snapshot</th>${platforms.map(p=>`<th>${p.label}</th>`).join('')}</tr></thead>
     <tbody>`;
@@ -980,7 +1065,7 @@ function renderImpToggle() {
     area.innerHTML = `<div class="imp-toggle-wrap">
       <span class="clabel">FB impressions</span>
       <div style="display:flex;gap:6px;flex-wrap:wrap">${btns}</div>
-      <span class="imp-toggle-note">Applies to Facebook only &mdash; X and LinkedIn impressions are organic</span>
+      <span class="imp-toggle-note">Applies to Facebook only &mdash; LinkedIn impressions are organic</span>
     </div>`;
     area.querySelectorAll('.imptbtn').forEach(btn => {
       const c = IMP_TYPE_COLORS[btn.dataset.fm];
@@ -1191,7 +1276,7 @@ function buildLiCompView(platData, wrap, ph, tableWrap, legendEl, caveat) {
 
   caveat.innerHTML =
     '<strong>Legacy peer set, uncertain continuity:</strong> this data comes from LinkedIn\u2019s native admin \u201cCompetitors\u201d analytics for a 9-peer list set before LinkedIn capped free Company Pages at tracking just 1 competitor. LinkedIn appears to still be updating this legacy list, but on the free tier we cannot edit, add, or remove peers, and there is no guarantee LinkedIn will continue providing this for free going forward. Treat this series as provisional rather than a guaranteed ongoing feed. A paid LinkedIn Premium Company Page subscription (from $99/month) would allow us to manage the peer list directly.' +
-    (compMetric === 'eng' ? '<br><strong>Basis differs from Facebook/X:</strong> LinkedIn \u201cEngagements\u201d here is reactions + comments only \u2014 no shares field is available, so it is not directly comparable to Facebook/X public engagements (which include shares).' : '') +
+    (compMetric === 'eng' ? '<br><strong>Basis differs from Facebook:</strong> LinkedIn \u201cEngagements\u201d here is reactions + comments only \u2014 no shares field is available, so it is not directly comparable to Facebook public engagements (which include shares).' : '') +
     (compMetric === 'newFollowers' ? '<br><strong>Note:</strong> this is month-over-month follower change, not a cumulative audience total \u2014 see the Followers toggle for why a total isn\u2019t available.' : '');
   caveat.style.display = 'block';
 
@@ -1270,7 +1355,7 @@ function buildCompChart() {
   tableWrap.style.display = 'none';
   wrap.style.display = ''; ph.style.display = 'none';
 
-  // Peer-set toggle only meaningful on Facebook (X tracks 4 peers, LinkedIn is fixed)
+  // Peer-set toggle only meaningful on Facebook (LinkedIn peer set is fixed; X peers live on the X Archive tab)
   setSeg.parentElement && (setSeg.style.opacity = compPlat === 'fb' ? '1' : '.35');
   setSeg.style.pointerEvents = compPlat === 'fb' ? 'auto' : 'none';
 
@@ -1358,6 +1443,210 @@ function compSegInit(id, attr, cb) {
   });
 }
 
+// ── X ARCHIVE (sunset Q3 2026) ──────────────────────────────────────────────
+// X is excluded from the 'all' aggregate in build.js; its own per-platform
+// series ('x') is shown only here.
+let xaMetric = 'imp', xaGran = 'monthly', xaCompMetric = 'eng';
+let xaChartObj = null, xaCompChartObj = null, xaBuilt = false;
+const X_COLOR = '#C0392B';
+const XA_METRIC_LABELS = { eng: 'Public Engagements', aud: 'Followers', posts: 'Published Posts' };
+
+// Active span of X data: first month with any activity → last month with data
+function xaSpan() {
+  let first = null, last = null;
+  for (const y of Object.keys(DATA.monthly).map(Number).sort((a,b)=>a-b)) {
+    for (let m = 0; m < 12; m++) {
+      const v = DATA.monthly[y]?.[m]?.x;
+      if (!v) continue;
+      if (first === null && (v.imp > 0 || v.eng > 0)) first = { y, m };
+      if (first !== null) last = { y, m };
+    }
+  }
+  return { first, last };
+}
+const XA = xaSpan();
+const XA_YEARS = XA.first ? Array.from({length: XA.last.y - XA.first.y + 1}, (_, i) => XA.first.y + i) : [];
+const xaFinalPartial = XA.last && XA.last.m < 11; // final year ends before December
+
+// Sum X metrics over months [0..upto] of a year (same-period comparison for the partial final year)
+function xaPeriodSum(yr, upto) {
+  let imp = 0, eng = 0, rn = 0, rd = 0, aud = null;
+  for (let m = 0; m <= upto; m++) {
+    const v = DATA.monthly[yr]?.[m]?.x;
+    if (!v) continue;
+    imp += v.imp || 0; eng += v.eng || 0;
+    if (v.rate != null) { const w = v.imp > 0 ? v.imp : 1; rn += v.rate * w; rd += w; }
+    if (v.aud != null) aud = v.aud;
+  }
+  return { imp, eng, rate: rd > 0 ? rn / rd : null, aud };
+}
+
+function xaYearLabel(yr) {
+  if (yr === XA.last?.y && xaFinalPartial) return `${yr} (${MONTHS_S[0]}\u2013${MONTHS_S[XA.last.m]})`;
+  if (yr === XA.first?.y && XA.first.m > 0) return `${yr} (${MONTHS_S[XA.first.m]}\u2013Dec)`;
+  return String(yr);
+}
+
+function renderXaCards() {
+  const yrs = XA_YEARS.slice().reverse();
+  let html = '<div class="cards">';
+  yrs.forEach(yr => {
+    const c = YR_COLORS[yr] || '#888';
+    const isFinal = yr === XA.last.y && xaFinalPartial;
+    const v = isFinal ? xaPeriodSum(yr, XA.last.m)[xaMetric] : (DATA.annual[yr]?.x?.[xaMetric] ?? null);
+    // Same-basis YoY: the partial final year is compared to the same months of the prior year
+    const prev = isFinal ? xaPeriodSum(yr-1, XA.last.m)[xaMetric] : (DATA.annual[yr-1]?.x?.[xaMetric] ?? null);
+    const prevLabel = isFinal ? `${MONTHS_S[0]}\u2013${MONTHS_S[XA.last.m]} ${yr-1}` : String(yr-1);
+    let chg = '';
+    const firstPartial = yr === XA.first.y && XA.first.m > 0;
+    if (v != null && prev != null && prev !== 0 && !firstPartial) {
+      const pct = (v-prev)/prev*100;
+      chg = `<div class="card-chg ${pct>=0?'up':'dn'}">${pct>=0?'↑':'↓'} ${pct>=0?'+':''}${pct.toFixed(1)}% vs ${prevLabel}</div>`;
+    }
+    html += `<div class="card" style="border-left-color:${c};border-top:2px solid rgba(218,201,155,.5)">
+      <div class="card-yr" style="color:${c}">${xaYearLabel(yr)}</div>
+      <div class="card-val">${v!=null?fmt(v,xaMetric):'—'}</div>
+      <div class="card-lbl">${METRIC_CARD[xaMetric]}${isFinal ? ' (through sunset)' : ''}</div>
+      ${chg}</div>`;
+  });
+  html += '</div>';
+  document.getElementById('xaCards').innerHTML = html;
+}
+
+function buildXaChart() {
+  if (!XA.first) return;
+  let labels = [], data = [];
+  if (xaGran === 'monthly') {
+    for (let y = XA.first.y; y <= XA.last.y; y++) {
+      const m0 = y === XA.first.y ? XA.first.m : 0, m1 = y === XA.last.y ? XA.last.m : 11;
+      for (let m = m0; m <= m1; m++) { labels.push(MONTHS_S[m]+' '+y); data.push(DATA.monthly[y]?.[m]?.x?.[xaMetric] ?? null); }
+    }
+  } else if (xaGran === 'quarterly') {
+    const q0 = Math.floor(XA.first.m/3)+1, q1 = Math.floor(XA.last.m/3)+1;
+    for (let y = XA.first.y; y <= XA.last.y; y++) {
+      for (let q = (y===XA.first.y?q0:1); q <= (y===XA.last.y?q1:4); q++) { labels.push('Q'+q+' '+y); data.push(DATA.quarterly[y]?.[q]?.x?.[xaMetric] ?? null); }
+    }
+  } else {
+    XA_YEARS.forEach(y => { labels.push(xaYearLabel(y)); data.push(DATA.annual[y]?.x?.[xaMetric] ?? null); });
+  }
+  const isBar = xaGran === 'annual', isRate = xaMetric === 'rate';
+  const titleMap = {imp:'Impressions',eng:'Engagements',rate:'Engagement Rate',aud:'Audience'};
+  const granLabel = {monthly:'Monthly',quarterly:'Quarterly',annual:'Annual'};
+  document.getElementById('xaChartTitle').textContent = `X ${titleMap[xaMetric]} (${granLabel[xaGran]}), ${labels[0]} to ${labels[labels.length-1]}`;
+  if (xaChartObj) { xaChartObj.destroy(); xaChartObj = null; }
+  xaChartObj = new Chart(document.getElementById('xaChart').getContext('2d'), {
+    type: isBar ? 'bar' : 'line',
+    data: { labels, datasets: [{ label: 'X', data, borderColor: X_COLOR, backgroundColor: isBar ? X_COLOR+'cc' : X_COLOR+'15',
+      borderWidth: isBar ? 1.5 : 2.5, borderRadius: isBar ? 4 : 0, pointRadius: xaGran==='monthly'?2:5, pointHoverRadius: 6,
+      tension: xaGran==='quarterly'?.2:.35, spanGaps: false, fill: !isBar }] },
+    options: {
+      responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { display: false },
+        tooltip: { callbacks: { label: c => c.parsed.y==null?null:` X: ${fmt(c.parsed.y, xaMetric)}` } } },
+      scales: {
+        x: { grid: { color:'rgba(64,64,65,0.05)' }, ticks: { color:'#999', font:{size:11}, autoSkip:true, maxTicksLimit: 18, maxRotation: 0 } },
+        y: { beginAtZero: true, grid: { color:'rgba(64,64,65,0.05)' },
+             ticks: { color:'#999', font:{size:11}, callback: v => isRate ? v+'%' : v>=1000?(v/1000).toFixed(0)+'K':v } }
+      }
+    }
+  });
+}
+
+function renderXaTable() {
+  const cols = [
+    { key:'imp',  label:'Impressions' }, { key:'eng', label:'Engagements' },
+    { key:'rate', label:'Eng. Rate' },   { key:'aud', label:'Audience (period end)' },
+  ];
+  let html = `<div class="pt-grid"><table class="pt-table"><thead><tr><th>Year</th>${cols.map(c=>`<th>${c.label}</th>`).join('')}</tr></thead><tbody>`;
+  XA_YEARS.slice().reverse().forEach(yr => {
+    const v = DATA.annual[yr]?.x || {};
+    html += `<tr><td><div class="metric-lbl"><span class="metric-dot" style="background:${YR_COLORS[yr]||'#888'}"></span>${xaYearLabel(yr)}</div></td>` +
+      cols.map(c => `<td>${v[c.key]!=null?fmt(v[c.key],c.key):'<span class="null-val">—</span>'}</td>`).join('') + '</tr>';
+  });
+  html += '</tbody></table></div>';
+  document.getElementById('xaTable').innerHTML = html;
+}
+
+function buildXaCompChart() {
+  if (!CDATA || !CDATA.platforms.x) return;
+  const platData = CDATA.platforms.x;
+  const names = Object.keys(platData.orgs);
+  if (!names.length) return;
+  document.getElementById('xaCompPanel').style.display = '';
+  const orgObjs = names.map(n => platData.orgs[n]);
+  const { labels, minY, maxY, lastM } = compMonthAxis(orgObjs);
+  if (!labels.length) return;
+  const series = o => {
+    const out = [];
+    for (let y = minY; y <= maxY; y++) for (let m = 0; m <= (y===maxY?lastM:11); m++) {
+      const v = o.monthly[y]?.[m]; out.push(v == null ? null : (v[xaCompMetric] ?? null));
+    }
+    return out;
+  };
+  const peers = names.filter(n => n !== CDATA.fund);
+  const ordered = [...peers, ...(names.includes(CDATA.fund) ? [CDATA.fund] : [])];
+  const datasets = ordered.map(n => {
+    const isFund = n === CDATA.fund;
+    const c = isFund ? '#7E162D' : (COMP_PEER_COLORS[n] || COMP_OTHER_COLOR);
+    return { label: isFund ? 'The Fund' : n, data: series(platData.orgs[n]), borderColor: c, backgroundColor: c+'15',
+      borderWidth: isFund ? 3.5 : 2, pointRadius: isFund ? 3 : 0, pointHoverRadius: 5, tension: .3, spanGaps: false };
+  });
+  document.getElementById('xaCompTitle').textContent = `${XA_METRIC_LABELS[xaCompMetric]} on X — The Fund vs. Peers (Monthly)`;
+  if (xaCompChartObj) { xaCompChartObj.destroy(); xaCompChartObj = null; }
+  xaCompChartObj = new Chart(document.getElementById('xaCompChart').getContext('2d'), {
+    type: 'line', data: { labels, datasets },
+    options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'nearest', intersect: false },
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => c.parsed.y == null ? null : ` ${c.dataset.label}: ${fmt(c.parsed.y, 'imp')}` } } },
+      scales: { x: { grid: { color:'rgba(64,64,65,0.05)' }, ticks: { color:'#999', font:{size:11}, autoSkip:true, maxTicksLimit:16 } },
+                y: { beginAtZero: true, grid: { color:'rgba(64,64,65,0.05)' }, ticks: { color:'#999', font:{size:11}, callback: v => v>=1000?(v/1000).toFixed(0)+'K':v } } } }
+  });
+  const fundIn = names.includes(CDATA.fund);
+  document.getElementById('xaCompLegend').innerHTML =
+    (fundIn ? `<span class="litem"><span class="ldot" style="background:#7E162D"></span>The Fund</span>` : '') +
+    peers.map(n => `<span class="litem"><span class="ldot" style="background:${COMP_PEER_COLORS[n]||COMP_OTHER_COLOR}"></span>${n}</span>`).join('');
+  // Coverage caveat, computed from the data so it stays accurate
+  let fundEnd = '';
+  if (fundIn) {
+    const fm = platData.orgs[CDATA.fund].monthly; let ly = null, lm = null;
+    for (const y of Object.keys(fm).map(Number).sort((a,b)=>a-b)) fm[y].forEach((v,i) => { if (v) { ly = y; lm = i; } });
+    if (ly !== null) fundEnd = ` The Fund\u2019s line comes from an archived competitor export and runs through ${MONTHS_F[lm]} ${ly}.`;
+  }
+  document.getElementById('xaCompCaveat').innerHTML =
+    `<strong>Coverage:</strong> ${peers.length} peer handles tracked. Full-2024 history exists for The Fund and Hope Chicago only; the other three populate from July 2024, with follower tracking from December 2024.${fundEnd}`;
+}
+
+function buildXArchive() {
+  if (XA.first) {
+    document.getElementById('xaMeta').textContent =
+      `Archive covers ${MONTHS_F[XA.first.m]} ${XA.first.y} through ${MONTHS_F[XA.last.m]} ${XA.last.y} (Sprout profile data, last refreshed ${DATA.meta?.lastDate || ''}).`;
+  }
+  renderXaCards(); buildXaChart(); renderXaTable(); buildXaCompChart();
+  xaBuilt = true;
+}
+
+function xaSegInit(id, attr, cb) {
+  document.getElementById(id).querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.getElementById(id).querySelectorAll('button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active'); cb(btn.dataset[attr]);
+    });
+  });
+}
+xaSegInit('xaMetricSeg', 'm', v => { xaMetric = v; renderXaCards(); buildXaChart(); });
+xaSegInit('xaGranSeg',   'g', v => { xaGran = v; buildXaChart(); });
+xaSegInit('xaCompMetricSeg', 'cm', v => { xaCompMetric = v; buildXaCompChart(); });
+
+// View switching (charts in a hidden view are built on first show so Chart.js can size them)
+function showView(v) {
+  document.getElementById('view-main').style.display = v === 'main' ? 'flex' : 'none';
+  document.getElementById('view-xarchive').style.display = v === 'xarchive' ? 'flex' : 'none';
+  document.querySelectorAll('.vtab').forEach(b => b.classList.toggle('active', b.dataset.view === v));
+  if (v === 'xarchive' && !xaBuilt) buildXArchive();
+  const hash = v === 'xarchive' ? '#x-archive' : '';
+  if (location.hash !== hash) history.replaceState(null, '', location.pathname + location.search + hash);
+}
+document.querySelectorAll('.vtab').forEach(b => b.addEventListener('click', () => showView(b.dataset.view)));
+
 // ── WIRE UP ────────────────────────────────────────────────────────────────
 function segInit(id, attr, cb) {
   document.getElementById(id).querySelectorAll('button').forEach(btn => {
@@ -1433,6 +1722,7 @@ if (CDATA) {
   compSegInit('compSetSeg',    'cs', v => { compSet = v; });
   buildCompChart();
 }
+if (location.hash === '#x-archive') showView('xarchive');
 </script>
 </body>
 </html>
