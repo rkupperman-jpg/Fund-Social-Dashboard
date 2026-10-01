@@ -43,6 +43,13 @@
     .ptab-active-x{background:#C0392B;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.25)}
     .ptab-active-x:hover{background:#1a1a1a;color:#fff}
     .ptab-active-combined{background:var(--combined);color:#fff;box-shadow:0 2px 8px rgba(91,63,166,.35)}
+    .ptab-tag{font-size:10px;font-weight:600;padding:1px 7px;border-radius:10px;background:rgba(0,0,0,.06);color:var(--mid)}
+    [class*="ptab-active"] .ptab-tag{background:rgba(255,255,255,.22);color:#fff}
+    .sunset-banner{background:var(--white);border:1px solid var(--border);border-left:4px solid #C0392B;border-radius:0 12px 12px 0;padding:16px 20px;margin-bottom:18px;box-shadow:0 1px 4px rgba(0,0,0,.05);font-size:13px;line-height:1.55}
+    .sunset-banner h3{font-family:Georgia,serif;font-weight:normal;font-size:17px;color:#C0392B;margin-bottom:4px}
+    .sunset-banner p+p{margin-top:5px}
+    .sunset-banner .sb-meta{font-size:12px;color:var(--mid)}
+    .archive-divider{font-family:Georgia,serif;font-size:17px;color:var(--maroon);margin:26px 0 12px;padding-top:18px;border-top:1px solid var(--border)}
     .ptab-active-combined:hover{background:#4a3190;color:#fff}
 
     /* Profile hero */
@@ -173,11 +180,7 @@
     </button>
     <button class="ptab" id="tab-x" onclick="setTab('x')">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-      X (Twitter)
-    </button>
-    <button class="ptab" id="tab-combined" onclick="setTab('combined')">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="9" cy="12" r="7"/><circle cx="15" cy="12" r="7"/></svg>
-      Combined
+      X Archive <span class="ptab-tag">Sunset Q3 2026</span>
     </button>
   </div>
 
@@ -236,8 +239,7 @@ let activeChart=null, combinedChart=null;
 
 // ─── Boot ─────────────────────────────────────────────────────────────────────
 (function(){
-  if(raw&&raw.meta) document.getElementById('dataTag').textContent=fmtDateRange(raw.meta.firstDate,raw.meta.lastDate)+' · '+raw.meta.totalPosts+' posts';
-  setTab('li');
+  setTab(location.hash==='#x-archive'?'x':'li');
 })();
 
 // ─── Tab ──────────────────────────────────────────────────────────────────────
@@ -245,15 +247,19 @@ function setTab(tab) {
   currentTab=tab;
   if(activeChart){activeChart.destroy();activeChart=null;}
   if(combinedChart){combinedChart.destroy();combinedChart=null;}
-  ['li','x','combined'].forEach(t=>{document.getElementById('tab-'+t).className='ptab'+(t===tab?' ptab-active-'+t:'');});
-  document.getElementById('hbadge').textContent=tab==='li'?'LinkedIn':tab==='x'?'X / Twitter':'LinkedIn + X';
-  document.getElementById('footerNote').textContent=tab==='li'?'LinkedIn · Personal account · Impressions from Jan 2026+':tab==='x'?'@MsAnichini · X / Twitter':'LinkedIn + X combined';
+  ['li','x'].forEach(t=>{document.getElementById('tab-'+t).className='ptab'+(t===tab?' ptab-active-'+t:'');});
+  document.getElementById('hbadge').textContent=tab==='li'?'LinkedIn':'X Archive';
+  document.getElementById('footerNote').textContent=tab==='li'?'LinkedIn · Personal account · Impressions from Jan 2026+':'@MsAnichini · X archive (sunset Q3 2026)';
+  // Data tag reflects only the platform on screen (X is no longer counted on the LinkedIn view)
+  const feed=tab==='li'?LI_FEED:X_FEED;
+  document.getElementById('dataTag').textContent=feed.length?fmtDateRange(feed[feed.length-1].date,feed[0].date)+' · '+feed.length+' posts':'';
   updateHeroMeta();
-  document.getElementById('contentArea').innerHTML=tab==='li'?renderLI():tab==='x'?renderX():renderCombined();
+  document.getElementById('contentArea').innerHTML=tab==='li'?renderLI():renderX();
+  const hash=tab==='x'?'#x-archive':'';
+  if(location.hash!==hash) history.replaceState(null,'',location.pathname+location.search+hash);
   setTimeout(()=>{
     if(tab==='li'){drawChart('li',liChartMode);renderFeed('li');}
-    else if(tab==='x'){drawChart('x',xChartMode);renderFeed('x');}
-    else drawCombinedChart();
+    else{drawChart('x',xChartMode);renderFeed('x');drawCombinedChart();}
   },0);
 }
 
@@ -264,7 +270,7 @@ function updateHeroMeta() {
   if(currentTab==='li')
     m.innerHTML=`<span class="hero-tag"><span class="li-dot"></span>LinkedIn Personal Profile</span><span class="hero-tag">${liD}</span><span class="hero-tag">${LI_FEED.length} posts tracked</span>`;
   else if(currentTab==='x')
-    m.innerHTML=`<span class="hero-tag"><span class="x-dot"></span>X / Twitter @MsAnichini</span><span class="hero-tag">${xD}</span><span class="hero-tag">${X_FEED.length} posts tracked</span>`;
+    m.innerHTML=`<span class="hero-tag"><span class="x-dot"></span>X / Twitter @MsAnichini</span><span class="hero-tag">${xD}</span><span class="hero-tag">${X_FEED.length} posts archived</span><span class="hero-tag" style="color:#C0392B;border-color:#E8B4AE">Sunset Q3 2026</span>`;
   else
     m.innerHTML=`<span class="hero-tag"><span class="combined-dot"></span>LinkedIn + X</span><span class="hero-tag">${LI_FEED.length+X_FEED.length} total posts</span>`;
 }
@@ -324,7 +330,14 @@ function renderX() {
             <div class="card" style="border-left-color:${c}"><div class="card-yr" style="color:${c}">${y.year}</div><div class="card-val">${fmt(y.totalEng)}</div><div class="card-lbl">Total engagements (${y.posts} posts)</div></div>`;
   }).join('');
   const xYears=[...new Set(X_FEED.map(p=>p.date.slice(0,4)))].sort().reverse();
-  return `
+  const xRange=X_FEED.length?fmtDateRange(X_FEED[X_FEED.length-1].date,X_FEED[0].date):'no posts';
+  const banner=`<div class="sunset-banner">
+    <h3>X was officially sunset in Q3 2026</h3>
+    <p>This tab preserves Heather&rsquo;s historical X activity for reference. X is not counted anywhere on the LinkedIn tab.</p>
+    <p class="sb-meta">Archive covers ${xRange} (${X_FEED.length} posts). The Fund&rsquo;s organizational X history is on the <a href="index.html#x-archive" style="font-weight:600">org dashboard&rsquo;s X Archive</a>.</p>
+  </div>`;
+  if(!X_FEED.length) return banner+`<div class="panel"><div class="sec-desc" style="margin:0">No X posts are loaded. Upload the X archive CSV to <code>data/influencers/</code> to restore this view.</div></div>`;
+  return banner+`
   <div class="cards">${kpis}</div>
   <div class="panel">
     <div class="chart-hdr"><div class="chart-title">Engagements per post over time</div>
@@ -350,7 +363,9 @@ function renderX() {
     </div>
     <div class="post-feed" id="x-feed"></div>
     <div class="pagination" id="x-pages"></div>
-  </div>`;
+  </div>
+  <div class="archive-divider">Historical comparison: LinkedIn vs. X</div>
+  ${renderCombined()}`;
 }
 
 // ─── Combined ─────────────────────────────────────────────────────────────────
@@ -362,7 +377,7 @@ function renderCombined() {
   const cAvg=cP?(cE/cP).toFixed(1):0,liPct=cE?Math.round(liT.eng/cE*100):0;
   const mult=xAvg>0?Math.round(parseFloat(liAvg)/parseFloat(xAvg)):'—';
   return `
-  <div class="note" style="border-color:#D0C4E8;background:#F5F0FC;color:#3D2A6B"><span style="font-size:14px;flex-shrink:0">⚡</span><span>Combined view covers all available data for both platforms. LinkedIn drives significantly higher engagement per post — Heather's stronger reach platform by a wide margin.</span></div>
+  <div class="note" style="border-color:#D0C4E8;background:#F5F0FC;color:#3D2A6B"><span style="font-size:14px;flex-shrink:0">⚡</span><span>This comparison covers all available data for both platforms. LinkedIn drives significantly higher engagement per post — Heather's stronger reach platform by a wide margin. <strong>Note:</strong> the windows differ (LinkedIn ${LI_FEED.length?fmtDateRange(LI_FEED[LI_FEED.length-1].date,LI_FEED[0].date):'—'}; X ${X_FEED.length?fmtDateRange(X_FEED[X_FEED.length-1].date,X_FEED[0].date):'—'}), so totals are not same-period.</span></div>
   <div class="cards">
     <div class="card" style="border-left-color:var(--combined)"><div class="card-yr" style="color:var(--combined)">ALL TIME</div><div class="card-val">${cP}</div><div class="card-lbl">Total posts, both platforms</div></div>
     <div class="card" style="border-left-color:var(--combined)"><div class="card-yr" style="color:var(--combined)">ALL TIME</div><div class="card-val">${fmt(cE)}</div><div class="card-lbl">Combined total engagements</div></div>
