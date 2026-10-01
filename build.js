@@ -233,6 +233,10 @@ function buildOrgData(allRows, fbPaidMap) {
  
   const monthly = {}, quarterly = {}, annual = {}, weeklyMap = {};
   const PLTS = ['x', 'fb', 'li'];
+  // Platforms rolled into the 'all' (All Platforms) aggregate. X was officially
+  // sunset in Q3 2026, so it is excluded from 'all' and appears only in its own
+  // per-platform series (shown on the dashboard's X Archive tab).
+  const ALL_PLTS = ['fb', 'li'];
  
   function initMetrics() {
     return { imp: 0, impOrganic: 0, impPaid: 0, eng: 0, rateNumer: 0, rateDenom: 0, audSamples: [] };
@@ -297,10 +301,11 @@ function buildOrgData(allRows, fbPaidMap) {
       addDay(quarterly[syr][sq][plt], imp, eng, rate, aud, impOrganic, impPaid);
       addDay(annual[syr][plt], imp, eng, rate, aud, impOrganic, impPaid);
       addDay(weeklyMap[wKey][plt], imp, eng, rate, aud, impOrganic, impPaid);
-      allDay.imp += imp; allDay.eng += eng;
-      if (rate !== null) allDay.rates.push({ r: rate, w: imp > 0 ? imp : 1 });
       // Update last known audience for this platform (used for 'all' sum below)
       if (aud !== null) lastKnownAud[plt] = aud;
+      if (!ALL_PLTS.includes(plt)) continue; // X excluded from 'all' (sunset Q3 2026)
+      allDay.imp += imp; allDay.eng += eng;
+      if (rate !== null) allDay.rates.push({ r: rate, w: imp > 0 ? imp : 1 });
     }
  
     const allRN = allDay.rates.reduce((s, x) => s + x.r * x.w, 0);
@@ -329,7 +334,7 @@ function buildOrgData(allRows, fbPaidMap) {
     // Push a single summed audience sample for 'all', using each platform's
     // last known value to fill any gaps (e.g. LinkedIn NaN days). This prevents
     // a temporarily-missing platform from collapsing the aggregate total.
-    const knownPlts = PLTS.filter(p => lastKnownAud[p] !== null);
+    const knownPlts = ALL_PLTS.filter(p => lastKnownAud[p] !== null);
     if (knownPlts.length > 0) {
       const audSum = knownPlts.reduce((s, p) => s + lastKnownAud[p], 0);
       monthly[syr][smo]['all'].audSamples.push(audSum);
