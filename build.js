@@ -2,23 +2,20 @@
 /**
  * build.js — CPEF Social Media Dashboard Data Builder
  *
- * Reads org CSVs from ./data/ (Sprout Social "Profile Performance" exports)
- * and influencer CSVs from ./data/influencers/ (Sprout "Post Performance" exports),
- * then writes:
- *   ./docs/data.js             — org dashboard data (window.DASHBOARD_DATA)
- *   ./docs/influencer_data.js  — influencer dashboard data (window.INFLUENCER_DATA)
+ * Reads every Sprout export under ./data/ (any subfolder), identifies each one
+ * by its columns and account names, and writes:
+ *   ./docs/data.js              — org dashboard data (window.DASHBOARD_DATA)
+ *   ./docs/influencer_data.js   — influencer dashboard data (window.INFLUENCER_DATA)
+ *   ./docs/competitor_data.js   — competitor data (window.COMPETITOR_DATA)
  *
  * Usage:
  *   node build.js
  *
- * To add new data:
- *   - Org updates:        drop new Profile Performance CSVs into ./data/
- *   - Influencer updates: drop new Post Performance CSVs into ./data/influencers/
- *
- * Multiple CSVs covering overlapping date ranges are supported — files are
- * sorted by the date range embedded in their filename (not upload time or
- * alphabetical order), and posts/rows are deduplicated so the newest export
- * always wins. Old files do NOT need to be deleted before uploading new ones.
+ * To add new data: download the export from Sprout, upload it anywhere under
+ * ./data/, commit. Filenames and folders don't matter, and old files never
+ * need to be deleted: overlapping rows are de-duplicated and the file whose
+ * data reaches the latest date wins. See MAIN for details, ./data/corrections/
+ * for pinned fixes, and "Data checks" for the automatic revision warnings.
  */
  
 const fs   = require('fs');
@@ -100,17 +97,17 @@ function fmtHuman(d) {
   return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 }
  
-// ── SHARED: FILE SORTING BY EMBEDDED DATE RANGE ──────────────────────────────
+// ── SHARED: DATE RANGE FROM A SPROUT FILENAME ────────────────────────────────
 // Sprout export filenames end in a date range like "January 1, 2024 - June 30, 2026".
-// We extract the LAST date found in the filename (the range's end date) and sort
-// files by that, so the export with the newest data is always processed last —
-// regardless of upload time, alphabetical filename sort, or git checkout mtimes.
-// This means old exports can be left in place; simply uploading a CSV with a
-// later end date is enough for it to take precedence.
+// Returns the LAST date in the filename (the range's end). Used only as a
+// tie-breaker: file priority is decided by the latest date inside each file
+// (see MAIN), so renamed files still sort correctly.
 function extractEndDateFromFilename(filename) {
   const months = { January:0, February:1, March:2, April:3, May:4, June:5,
                     July:6, August:7, September:8, October:9, November:10, December:11 };
-  const re = /([A-Z][a-z]+)\s+(\d{1,2}),\s+(\d{4})/g;
+  // Tolerates renamed downloads, e.g. "October_14__2026" as well as "October 14, 2026"
+  filename = String(filename).replace(/_/g, ' ');
+  const re = /([A-Z][a-z]+)\s+(\d{1,2}),?\s+(\d{4})/g;
   let match, last = null;
   while ((match = re.exec(filename)) !== null) {
     const [, monthName, day, year] = match;
@@ -118,21 +115,6 @@ function extractEndDateFromFilename(filename) {
     last = new Date(parseInt(year), months[monthName], parseInt(day));
   }
   return last;
-}
- 
-function sortFilesByEndDate(files) {
-  return files
-    .map(f => ({ f, endDate: extractEndDateFromFilename(f) }))
-    .sort((a, b) => {
-      if (!a.endDate && !b.endDate) return a.f.localeCompare(b.f);
-      if (!a.endDate) return -1;
-      if (!b.endDate) return 1;
-      return a.endDate - b.endDate;
-    })
-    .map(x => {
-      if (!x.endDate) console.log(`  \u26a0 Could not parse a date range from "${x.f}" — falling back to alphabetical order`);
-      return x.f;
-    });
 }
  
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -143,24 +125,20 @@ function sortFilesByEndDate(files) {
 // Reads Facebook Pages exports (from Sprout's "Facebook Pages" report) which
 // contain Organic Views and Paid Views columns, and returns a Map of
 // dateKey (MM-DD-YYYY) → { impOrganic, impPaid }
-function buildFbPaidMap(fbDir) {
+function buildFbPaidMap(fbFiles) {
   const map = {};
-  if (!fs.existsSync(fbDir)) return map;
-  const files = sortFilesByEndDate(
-    fs.readdirSync(fbDir).filter(f => f.toLowerCase().endsWith('.csv'))
-  );
-  if (files.length === 0) return map;
-  console.log(`\n── Facebook Pages data (${files.length} file(s)) ──`);
-  for (const f of files) {
-    const rows = parseCSV(path.join(fbDir, f));
-    console.log(`  ${f}  (${rows.length} rows)`);
+  if (fbFiles.length === 0) return map;
+  console.log(`\n── Facebook Pages data (${fbFiles.length} file(s), oldest→newest by data date) ──`);
+  for (const df of fbFiles) {
+    const rows = df.rows.filter(r => isOrgProfile(r['Facebook Page']));
+    console.log(`  ${df.rel}  (${rows.length} rows)`);
     for (const row of rows) {
       const dateKey = row['Date'];
       if (!dateKey) continue;
       const organic = num(row['Organic Views']) ?? 0;
       const paid    = num(row['Paid Views'])    ?? 0;
-      // Last file wins for overlapping dates (files now sorted oldest→newest
-      // by embedded end date, so "last" reliably means "newest data")
+      // Last file wins for overlapping dates (files are sorted oldest→newest
+      // by the latest date inside each file, so "last" means "newest data")
       map[dateKey] = { impOrganic: organic, impPaid: paid };
     }
   }
@@ -169,7 +147,7 @@ function buildFbPaidMap(fbDir) {
 }
  
 function platformKey(network) {
-  const n = network.toLowerCase();
+  const n = String(network || '').toLowerCase();
   if (n === 'x') return 'x';
   if (n === 'facebook') return 'fb';
   if (n === 'linkedin') return 'li';
@@ -218,14 +196,17 @@ function buildOrgData(allRows, fbPaidMap) {
       aud:  num(row['Audience']),
     };
  
-    // Attach organic/paid split for Facebook if available
-    if (plt === 'fb' && fbPaidMap[dateKey]) {
-      entry.impOrganic = fbPaidMap[dateKey].impOrganic;
-      entry.impPaid    = fbPaidMap[dateKey].impPaid;
-    } else if (plt === 'fb') {
-      // No Facebook Pages data for this date — treat all as organic
-      entry.impOrganic = totalImp;
-      entry.impPaid    = 0;
+    // Facebook organic/paid split. Total impressions come from Profile
+    // Performance (the source of truth for totals); only the PAID portion comes
+    // from the Facebook Pages report. Organic = total - paid, so organic + paid
+    // always equals total, and a Facebook Pages export that is older than the
+    // Profile export can never understate organic. (Before Oct 2026 organic was
+    // taken directly from the Pages report's "Organic Views", which ran ~2-5%
+    // below total in 2022-23 even with no paid activity.)
+    if (plt === 'fb') {
+      const paid = fbPaidMap[dateKey] ? fbPaidMap[dateKey].impPaid : 0;
+      entry.impPaid    = paid;
+      entry.impOrganic = Math.max(totalImp - paid, 0);
     }
  
     daily[dateKey][plt] = entry;
@@ -239,10 +220,10 @@ function buildOrgData(allRows, fbPaidMap) {
   const ALL_PLTS = ['fb', 'li'];
  
   function initMetrics() {
-    return { imp: 0, impOrganic: 0, impPaid: 0, eng: 0, rateNumer: 0, rateDenom: 0, audSamples: [] };
+    return { imp: 0, impOrganic: 0, impPaid: 0, eng: 0, rateNumer: 0, rateDenom: 0, audSamples: [], days: 0 };
   }
   function addDay(slot, imp, eng, rate, aud, impOrganic, impPaid) {
-    slot.imp += imp; slot.eng += eng;
+    slot.imp += imp; slot.eng += eng; slot.days++;
     if (impOrganic !== undefined) slot.impOrganic += impOrganic;
     if (impPaid    !== undefined) slot.impPaid    += impPaid;
     if (rate !== null) {
@@ -358,13 +339,18 @@ function buildOrgData(allRows, fbPaidMap) {
     return result;
   }
  
+  // A platform with no source rows in a period (e.g. X after the newest export
+  // stopped including it) is omitted rather than written as zeros, so archived
+  // series end where their data ends. 'all' is always written.
+  const hasRows = (plt, slot) => plt === 'all' || slot.days > 0;
+
   const finalMonthly = {};
   for (const [yr, months] of Object.entries(monthly)) {
     finalMonthly[yr] = {};
     for (const [mo, plts] of Object.entries(months)) {
       if (!Object.values(plts).some(p => p.imp > 0 || p.eng > 0)) continue;
       finalMonthly[yr][mo] = {};
-      for (const [plt, slot] of Object.entries(plts)) finalMonthly[yr][mo][plt] = finalize(slot);
+      for (const [plt, slot] of Object.entries(plts)) { if (!hasRows(plt, slot)) continue; finalMonthly[yr][mo][plt] = finalize(slot); }
     }
   }
  
@@ -374,7 +360,7 @@ function buildOrgData(allRows, fbPaidMap) {
     for (const [q, plts] of Object.entries(quarters)) {
       if (!Object.values(plts).some(p => p.imp > 0 || p.eng > 0)) continue;
       finalQuarterly[yr][q] = {};
-      for (const [plt, slot] of Object.entries(plts)) finalQuarterly[yr][q][plt] = finalize(slot);
+      for (const [plt, slot] of Object.entries(plts)) { if (!hasRows(plt, slot)) continue; finalQuarterly[yr][q][plt] = finalize(slot); }
     }
   }
  
@@ -382,7 +368,7 @@ function buildOrgData(allRows, fbPaidMap) {
   for (const [yr, plts] of Object.entries(annual)) {
     if (!Object.values(plts).some(p => p.imp > 0 || p.eng > 0)) continue;
     finalAnnual[yr] = {};
-    for (const [plt, slot] of Object.entries(plts)) finalAnnual[yr][plt] = finalize(slot);
+    for (const [plt, slot] of Object.entries(plts)) { if (!hasRows(plt, slot)) continue; finalAnnual[yr][plt] = finalize(slot); }
   }
  
   const MONTH_ABBR = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -393,7 +379,7 @@ function buildOrgData(allRows, fbPaidMap) {
       const end = new Date(start); end.setDate(end.getDate() + 6);
       const label = `W${w.wn} ${w.wy} (${MONTH_ABBR[start.getMonth()]} ${start.getDate()}\u2013${MONTH_ABBR[end.getMonth()]} ${end.getDate()})`;
       const entry = { wy: w.wy, wn: w.wn, start: fmtISO(start), end: fmtISO(end), label };
-      for (const plt of [...PLTS, 'all']) entry[plt] = finalize(w[plt]);
+      for (const plt of [...PLTS, 'all']) { if (!hasRows(plt, w[plt])) continue; entry[plt] = finalize(w[plt]); }
       return entry;
     });
  
@@ -507,39 +493,255 @@ function buildInfluencerData(allRows) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // ── MAIN ────────────────────────────────────────────────────────────────────
 // ═══════════════════════════════════════════════════════════════════════════════
- 
-const dataDir       = path.join(__dirname, 'data');
-const fbPagesDir    = path.join(__dirname, 'data', 'facebook_pages');
-const influencerDir = path.join(__dirname, 'data', 'influencers');
-const orgOutFile    = path.join(__dirname, 'docs', 'data.js');
-const infOutFile    = path.join(__dirname, 'docs', 'influencer_data.js');
- 
+//
+// UPLOAD WORKFLOW: download any Sprout export, drop it anywhere under ./data/
+// (any subfolder, original or renamed filename), commit. Nothing needs to be
+// deleted. The build identifies each file by its columns and account names:
+//   • Profile Performance  → Fund rows feed the org dashboard. Rows for any other
+//                            profile (e.g. Heather's profile export) are ignored,
+//                            so they can never overwrite Fund numbers.
+//   • Post Performance     → non-Fund profiles (Heather) feed the influencer page.
+//                            Fund post rows are logged but not used yet.
+//   • Facebook Pages       → paid views for the Facebook organic/paid split.
+//   • Competitor Performance → competitor dashboard (Facebook + X peers).
+//   • LinkedIn native Competitors exports (.xlsx) → LinkedIn peer data.
+//   • Anything else        → skipped with a log line; never stops the build.
+// When files overlap, the file whose rows reach the LATEST date wins (newest
+// data), with the filename's date range as a tie-breaker. Rows that only an
+// older file has (e.g. X history, which newer exports no longer include) are
+// kept, so archives never disappear.
+// ./data/corrections/ is special: pinned fixes and accepted changes, see below.
+
+const dataDir        = path.join(__dirname, 'data');
+const correctionsDir = path.join(dataDir, 'corrections');
+const orgOutFile     = path.join(__dirname, 'docs', 'data.js');
+const infOutFile     = path.join(__dirname, 'docs', 'influencer_data.js');
+
+// Fund accounts as Sprout names them ("The Chicago Public Education Fund",
+// "'@TheFundChicago"). Everything else is treated as a non-Fund profile.
+const ORG_PROFILE_RE = /chicago public education fund|thefundchicago/i;
+function isOrgProfile(name) { return ORG_PROFILE_RE.test(String(name || '')); }
+
+function listFilesRecursive(dir) {
+  const out = [];
+  if (!fs.existsSync(dir)) return out;
+  for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (ent.name.startsWith('.') || ent.name === 'node_modules') continue;
+    const full = path.join(dir, ent.name);
+    if (ent.isDirectory()) out.push(...listFilesRecursive(full));
+    else out.push(full);
+  }
+  return out;
+}
+
+// Accepts Sprout's "MM-DD-YYYY" (daily reports) and "M/D/YYYY h:mm am" (post reports)
+function parseRowDate(s) {
+  s = String(s || '').trim();
+  let m = s.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+  if (!m) m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (!m) return null;
+  const d = new Date(parseInt(m[3]), parseInt(m[1]) - 1, parseInt(m[2]));
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function classifyCsv(headers) {
+  const has = h => headers.includes(h);
+  if (has('Facebook Page') && has('Organic Views') && has('Paid Views'))           return 'fbPages';
+  if (has('Public Engagements') && has('Audience') && has('Date') && !has('Post ID')) return 'compPerf';
+  if (has('Post ID') && has('Public Engagements') && !has('Impressions'))          return 'compPosts';
+  if (has('Post ID') && has('Profile') && has('Impressions'))                      return 'posts';
+  if (has('Network') && has('Profile') && has('Impressions') && has('Sent Messages (Total)')) return 'profile';
+  const lower = headers.map(h => h.toLowerCase());
+  if (lower.includes('month') && lower.includes('organization'))                   return 'liCompCsv';
+  return 'unknown';
+}
+
+const KIND_LABELS = {
+  profile: 'Profile Performance', posts: 'Post Performance', fbPages: 'Facebook Pages',
+  compPerf: 'Competitor Performance', compPosts: 'Competitor Posts (not used)',
+  liCompCsv: 'LinkedIn competitor CSV', unknown: 'unrecognized — skipped',
+};
+
+console.log('\n── Discovering data files under ./data/ ──');
+const discovered = [];
+for (const full of listFilesRecursive(dataDir)) {
+  if (full.startsWith(correctionsDir + path.sep)) continue;
+  if (!full.toLowerCase().endsWith('.csv')) continue;
+  const rel = path.relative(dataDir, full);
+  let rows;
+  try { rows = parseCSV(full); }
+  catch (e) { console.log(`  ⚠ ${rel}  (skipped — could not be read: ${e.message})`); continue; }
+  const headers = rows.length ? Object.keys(rows[0]) : [];
+  const kind = classifyCsv(headers);
+  let maxDate = null;
+  for (const r of rows) { const d = parseRowDate(r['Date']); if (d && (!maxDate || d > maxDate)) maxDate = d; }
+  discovered.push({ full, rel, kind, rows, maxDate, nameDate: extractEndDateFromFilename(path.basename(full)) });
+}
+// Oldest → newest: latest date inside the file, then the filename's end date, then name
+discovered.sort((a, b) =>
+  ((a.maxDate || 0) - (b.maxDate || 0)) ||
+  ((a.nameDate || 0) - (b.nameDate || 0)) ||
+  a.rel.localeCompare(b.rel));
+for (const d of discovered) {
+  const thru = d.maxDate ? fmtISO(d.maxDate) : 'no dates';
+  console.log(`  ${d.rel}  → ${KIND_LABELS[d.kind]} (${d.rows.length} rows, data through ${thru})`);
+}
+const filesOfKind = k => discovered.filter(d => d.kind === k);
+
 // ── Build org data ────────────────────────────────────────────────────────────
-const orgFiles = sortFilesByEndDate(
-  fs.readdirSync(dataDir).filter(f => f.toLowerCase().endsWith('.csv'))
-);
- 
-if (orgFiles.length === 0) {
-  console.error('No org CSV files found in ./data/');
+const profileFiles = filesOfKind('profile');
+if (profileFiles.length === 0) {
+  console.error('No Profile Performance exports found under ./data/');
   process.exit(1);
 }
- 
-console.log(`\n── Org data (${orgFiles.length} file(s), oldest→newest by filename date range) ──`);
+console.log(`\n── Org data (${profileFiles.length} Profile Performance file(s), oldest→newest) ──`);
 let orgRows = [];
-for (const f of orgFiles) {
-  const rows = parseCSV(path.join(dataDir, f));
-  console.log(`  ${f}  (${rows.length} rows)`);
-  orgRows = orgRows.concat(rows);
+for (const df of profileFiles) {
+  const fund  = df.rows.filter(r => isOrgProfile(r['Profile']));
+  const other = df.rows.length - fund.length;
+  console.log(`  ${df.rel}  (${fund.length} Fund rows${other ? `; ${other} rows for other profiles ignored` : ''})`);
+  orgRows = orgRows.concat(fund);
 }
 console.log(`Total org rows: ${orgRows.length}`);
- 
+
+// ── Apply pinned corrections (./data/corrections/) ────────────────────────────
+// Some Sprout Profile Performance exports contain known errors. Each correction
+// CSV holds Date + Network plus the metric columns to pin; for every matching
+// org row, those columns are overwritten with the correction's values. All other
+// columns (Audience, Reactions, etc.) are left untouched.
+//
+// Current correction (added Oct 2026):
+//   Sprout exports pulled after June 2026 (seen in the Sep 30 and Oct 14, 2026
+//   exports) report LinkedIn Impressions and Post Link Clicks at ~2x for
+//   Feb 1 – Jun 10, 2026, while Reactions are unchanged. The June 30, 2026
+//   export and post-level (Post Performance) data agree with each other at the
+//   un-doubled level, so those dates are pinned to the June 30 export's
+//   Impressions, Engagements, Engagement Rate and Post Link Clicks.
+//   To retire it: if a fresh Sprout export shows ~1.00x against the correction
+//   (see the ratio logged below), delete the correction file.
+//
+// accepted_changes.csv (columns Network, Month as YYYY-MM, Reason) is not a
+// correction: it lists months whose large revision has been reviewed and
+// accepted as real, which clears the dashboard warning (see data checks).
+const ACCEPTED_FILE = 'accepted_changes.csv';
+const correctedMonths = new Set();   // 'li|2026-02' etc. — excluded from data checks
+const acceptedMonths  = new Set();
+if (fs.existsSync(correctionsDir)) {
+  const corrFiles = fs.readdirSync(correctionsDir).filter(f => f.toLowerCase().endsWith('.csv')).sort();
+  const fixFiles = corrFiles.filter(f => f.toLowerCase() !== ACCEPTED_FILE);
+  if (fixFiles.length > 0) console.log(`\n── Corrections (${fixFiles.length} file(s)) ──`);
+  for (const f of fixFiles) {
+    const corrRows = parseCSV(path.join(correctionsDir, f));
+    const corrMap = {};
+    let fields = [];
+    for (const r of corrRows) {
+      corrMap[`${r['Date']}|${r['Network']}`] = r;
+      fields = Object.keys(r).filter(k => k !== 'Date' && k !== 'Network');
+      const d = parseRowDate(r['Date']), plt = platformKey(r['Network']);
+      if (d && plt) correctedMonths.add(`${plt}|${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+    }
+    let matched = 0, impBefore = 0, impAfter = 0;
+    for (const row of orgRows) {
+      const c = corrMap[`${row['Date']}|${row['Network']}`];
+      if (!c) continue;
+      impBefore += num(row['Impressions']) ?? 0;
+      for (const k of fields) row[k] = c[k];
+      impAfter += num(row['Impressions']) ?? 0;
+      matched++;
+    }
+    const ratio = impAfter > 0 ? (impBefore / impAfter).toFixed(2) : 'n/a';
+    console.log(`  ${f}  (${corrRows.length} rows; ${matched} org rows corrected; export/correction impressions ratio ${ratio}x)`);
+  }
+  if (corrFiles.some(f => f.toLowerCase() === ACCEPTED_FILE)) {
+    for (const r of parseCSV(path.join(correctionsDir, ACCEPTED_FILE))) {
+      const plt = platformKey(r['Network']);
+      const mo  = String(r['Month'] || '').trim();
+      if (plt && /^\d{4}-\d{2}$/.test(mo)) acceptedMonths.add(`${plt}|${mo}`);
+    }
+    if (acceptedMonths.size) console.log(`  ${ACCEPTED_FILE}  (${acceptedMonths.size} accepted month(s))`);
+  }
+}
+
 // ── Load Facebook paid/organic split data ─────────────────────────────────────
-const fbPaidMap = buildFbPaidMap(fbPagesDir);
- 
+const fbPaidMap = buildFbPaidMap(filesOfKind('fbPages'));
+
 const orgData = buildOrgData(orgRows, fbPaidMap);
 console.log(`Years: ${Object.keys(orgData.annual).sort().join(', ')}`);
 console.log(`Last date: ${orgData.meta.lastDate}`);
- 
+
+// ── Data checks: catch Sprout revisions to settled months ─────────────────────
+// Compares this build's monthly totals with the previously published
+// docs/data.js. A month is "settled" if it ended at least 31 days before the
+// previous build's last data date; settled months normally move by a few
+// percent at most. A move of more than 25% (and at least 500 impressions or
+// 100 engagements) is flagged in meta.dataWarnings and shown as a banner on the
+// dashboard. Warnings persist across builds until the month returns to within
+// 25% of its earlier value (e.g. a fixed re-export is uploaded), a correction
+// file covers it, or it is listed in data/corrections/accepted_changes.csv.
+// This is what would have caught the Feb–Jun 2026 LinkedIn doubling.
+(function runDataChecks() {
+  let prev = null;
+  try {
+    if (fs.existsSync(orgOutFile)) {
+      const txt = fs.readFileSync(orgOutFile, 'utf8');
+      prev = JSON.parse(txt.slice(txt.indexOf('{'), txt.lastIndexOf('}') + 1));
+    }
+  } catch (e) { console.log(`  ⚠ Could not read previous ${path.relative(__dirname, orgOutFile)} for data checks: ${e.message}`); }
+
+  const PLT_NAMES = { fb: 'Facebook', li: 'LinkedIn', x: 'X' };
+  const THRESH = { imp: 500, eng: 100 };
+  const ym = (y, m) => `${y}-${String(Number(m) + 1).padStart(2, '0')}`;
+  const cur = (plt, month, metric) => {
+    const [y, mm] = month.split('-').map(Number);
+    const v = orgData.monthly[String(y)]?.[String(mm - 1)]?.[plt];
+    return v ? v[metric] : null;
+  };
+  const exempt = (plt, month) => correctedMonths.has(`${plt}|${month}`) || acceptedMonths.has(`${plt}|${month}`);
+  const bigMove = (before, after, metric) =>
+    before != null && after != null &&
+    Math.abs(after - before) >= THRESH[metric] &&
+    Math.abs(after - before) / Math.max(before, 1) > 0.25;
+
+  const warnings = new Map();
+  // Carry forward earlier warnings that are still unresolved
+  for (const w of (prev?.meta?.dataWarnings || [])) {
+    if (exempt(w.plt, w.month)) continue;
+    const now = cur(w.plt, w.month, w.metric);
+    if (!bigMove(w.before, now, w.metric)) continue; // back within 25% → resolved
+    warnings.set(w.key, { ...w, after: now });
+  }
+  // New warnings from this build
+  if (prev?.monthly && prev?.meta?.lastDate) {
+    const prevLast = new Date(prev.meta.lastDate);
+    const cutoff = new Date(prevLast); cutoff.setDate(cutoff.getDate() - 31);
+    for (const [y, months] of Object.entries(prev.monthly)) {
+      for (const [m, plts] of Object.entries(months)) {
+        const monthEnd = new Date(Number(y), Number(m) + 1, 0);
+        if (isNaN(cutoff) || monthEnd > cutoff) continue; // not settled yet
+        const month = ym(y, m);
+        for (const plt of ['fb', 'li', 'x']) {
+          if (!plts[plt] || exempt(plt, month)) continue;
+          for (const metric of ['imp', 'eng']) {
+            const before = plts[plt][metric], after = cur(plt, month, metric);
+            const key = `${plt}|${month}|${metric}`;
+            if (warnings.has(key) || !bigMove(before, after, metric)) continue;
+            warnings.set(key, { key, plt, network: PLT_NAMES[plt], month, metric, before, after,
+                                flaggedAt: fmtISO(new Date()) });
+          }
+        }
+      }
+    }
+  }
+  orgData.meta.dataWarnings = [...warnings.values()].sort((a, b) => a.key.localeCompare(b.key));
+  if (orgData.meta.dataWarnings.length) {
+    console.log(`\n── ⚠ Data checks: ${orgData.meta.dataWarnings.length} settled month(s) changed by more than 25% ──`);
+    for (const w of orgData.meta.dataWarnings)
+      console.log(`  ${w.network} ${w.month} ${w.metric}: ${w.before} → ${w.after}`);
+  } else {
+    console.log('\n── Data checks: no unexpected revisions to settled months ──');
+  }
+})();
+
 const orgOutput = `// Auto-generated by build.js — do not edit manually.
 // Built: ${orgData.meta.builtAt}
 // Last data date: ${orgData.meta.lastDate}
@@ -547,43 +749,39 @@ window.DASHBOARD_DATA = ${JSON.stringify(orgData)};
 `;
 fs.writeFileSync(orgOutFile, orgOutput, 'utf8');
 console.log(`✓ Written ${orgOutFile} (${(orgOutput.length/1024).toFixed(1)} KB)`);
- 
+
 // ── Build influencer data ─────────────────────────────────────────────────────
-if (fs.existsSync(influencerDir)) {
-  const infFiles = sortFilesByEndDate(
-    fs.readdirSync(influencerDir).filter(f => f.toLowerCase().endsWith('.csv'))
-  );
- 
-  if (infFiles.length > 0) {
-    console.log(`\n── Influencer data (${infFiles.length} file(s), oldest→newest by filename date range) ──`);
-    let infRows = [];
-    for (const f of infFiles) {
-      const rows = parseCSV(path.join(influencerDir, f));
-      console.log(`  ${f}  (${rows.length} rows)`);
-      infRows = infRows.concat(rows);
-    }
- 
-    const infData = buildInfluencerData(infRows);
-    if (infData) {
-      console.log(`Posts: ${infData.meta.totalPosts}`);
-      console.log(`Profiles: ${infData.meta.profiles.join(', ')}`);
-      console.log(`Date range: ${infData.meta.firstDate} → ${infData.meta.lastDate}`);
- 
-      const infOutput = `// Auto-generated by build.js — do not edit manually.
+// Post Performance rows for non-Fund profiles (Heather today; any future
+// influencer profiles automatically). Fund post rows are skipped here.
+const postFiles = filesOfKind('posts');
+if (postFiles.length > 0) {
+  console.log(`\n── Influencer data (${postFiles.length} Post Performance file(s), oldest→newest) ──`);
+  let infRows = [];
+  for (const df of postFiles) {
+    const inf  = df.rows.filter(r => !isOrgProfile(r['Profile']));
+    const fund = df.rows.length - inf.length;
+    console.log(`  ${df.rel}  (${inf.length} influencer rows${fund ? `; ${fund} Fund post rows not used yet` : ''})`);
+    infRows = infRows.concat(inf);
+  }
+
+  const infData = buildInfluencerData(infRows);
+  if (infData) {
+    console.log(`Posts: ${infData.meta.totalPosts}`);
+    console.log(`Profiles: ${infData.meta.profiles.join(', ')}`);
+    console.log(`Date range: ${infData.meta.firstDate} → ${infData.meta.lastDate}`);
+
+    const infOutput = `// Auto-generated by build.js — do not edit manually.
 // Built: ${infData.meta.builtAt}
 // Last data date: ${infData.meta.lastDate}
 window.INFLUENCER_DATA = ${JSON.stringify(infData)};
 `;
-      fs.writeFileSync(infOutFile, infOutput, 'utf8');
-      console.log(`✓ Written ${infOutFile} (${(infOutput.length/1024).toFixed(1)} KB)`);
-    } else {
-      console.log('  No Post Performance rows found — skipping influencer_data.js');
-    }
+    fs.writeFileSync(infOutFile, infOutput, 'utf8');
+    console.log(`✓ Written ${infOutFile} (${(infOutput.length/1024).toFixed(1)} KB)`);
   } else {
-    console.log('\n── No influencer CSVs in ./data/influencers/ — skipping ──');
+    console.log('  No influencer post rows found — skipping influencer_data.js');
   }
 } else {
-  console.log('\n── No ./data/influencers/ folder — skipping influencer data ──');
+  console.log('\n── No Post Performance exports found — skipping influencer data ──');
 }
  
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -941,58 +1139,61 @@ function buildCompetitorData(perfRows, liRows) {
 }
 
 // ── Build competitor data ──────────────────────────────────────────────────────
-const competitorDir   = path.join(__dirname, 'data', 'competitors');
-const competitorLiDir = path.join(__dirname, 'data', 'competitors_linkedin');
-const compOutFile     = path.join(__dirname, 'docs', 'competitor_data.js');
+// Inputs come from the same discovery pass as everything else, so competitor
+// exports can sit anywhere under ./data/ (data/competitors/ still works).
+const compOutFile = path.join(__dirname, 'docs', 'competitor_data.js');
 
+// Sprout Competitor Performance (Facebook + X). Overlapping exports are
+// de-duplicated by Date + Network + Profile, newest file winning, so leaving
+// older exports in place can no longer double-count a period.
 let compPerfRows = [];
-if (fs.existsSync(competitorDir)) {
-  const compFiles = fs.readdirSync(competitorDir).filter(f => f.toLowerCase().endsWith('.csv')).sort();
-  if (compFiles.length > 0) {
-    console.log(`\n── Competitor data (${compFiles.length} file(s)) ──`);
-    for (const f of compFiles) {
-      const rows = parseCSV(path.join(competitorDir, f));
-      const headers = rows.length ? Object.keys(rows[0]) : [];
-      const isPerf = headers.includes('Public Engagements') && headers.includes('Audience') && headers.includes('Date');
-      if (isPerf) {
-        console.log(`  ${f}  (${rows.length} rows — Competitor Performance)`);
-        compPerfRows = compPerfRows.concat(rows);
-      } else {
-        console.log(`  ${f}  (skipped — not a Competitor Performance export)`);
-      }
+const compPerfFiles = filesOfKind('compPerf');
+if (compPerfFiles.length > 0) {
+  console.log(`\n── Competitor data (${compPerfFiles.length} Competitor Performance file(s), oldest→newest) ──`);
+  const byKey = new Map();
+  let total = 0;
+  for (const df of compPerfFiles) {
+    console.log(`  ${df.rel}  (${df.rows.length} rows)`);
+    for (const r of df.rows) {
+      total++;
+      byKey.set(`${(r['Date'] || '').trim()}|${(r['Network'] || '').trim()}|${(r['Profile'] || '').trim()}`, r);
     }
-  } else {
-    console.log('\n── No competitor CSVs in ./data/competitors/ — skipping ──');
   }
+  compPerfRows = [...byKey.values()];
+  if (compPerfRows.length < total) console.log(`  ${total - compPerfRows.length} overlapping rows de-duplicated (newest export kept)`);
 } else {
-  console.log('\n── No ./data/competitors/ folder — skipping competitor data ──');
+  console.log('\n── No Competitor Performance exports found — skipping Facebook/X peers ──');
 }
 
+// LinkedIn competitors: raw .xlsx exports from LinkedIn's native Competitors tab
+// (any .xlsx under ./data/; other workbooks are skipped by the parser), plus the
+// legacy pre-converted CSV form (Month, Organization, ...).
 let compLiRows = [];
-if (fs.existsSync(competitorLiDir)) {
-  const liFiles = fs.readdirSync(competitorLiDir).filter(f => /\.(csv|xlsx)$/i.test(f)).sort();
-  if (liFiles.length > 0) {
-    console.log(`\n── LinkedIn competitor snapshots (${liFiles.length} file(s)) ──`);
-    for (const f of liFiles) {
-      const full = path.join(competitorLiDir, f);
-      if (f.toLowerCase().endsWith('.xlsx')) {
-        // Raw export straight from LinkedIn's native "Competitors" tab — no manual conversion needed.
-        const { rows, skippedReason, window: win, exact } = parseLinkedInRawXlsx(full);
-        if (skippedReason) {
-          console.log(`  ${f}  (skipped — ${skippedReason})`);
-        } else {
-          console.log(`  ${f}  (${rows.length} rows — raw LinkedIn export, ${rows[0] ? rows[0].Month : '?'}${exact ? '' : `, rolling window ${win} assigned by majority of days`})`);
-          compLiRows = compLiRows.concat(rows);
-        }
-      } else {
-        const rows = parseCSV(full);
-        console.log(`  ${f}  (${rows.length} rows)`);
-        compLiRows = compLiRows.concat(rows);
-      }
+const liXlsx = listFilesRecursive(dataDir)
+  .filter(f => f.toLowerCase().endsWith('.xlsx') && !f.startsWith(correctionsDir + path.sep))
+  .sort();
+const liCsv = filesOfKind('liCompCsv');
+if (liXlsx.length + liCsv.length > 0) {
+  console.log(`\n── LinkedIn competitor snapshots (${liXlsx.length + liCsv.length} file(s)) ──`);
+  for (const full of liXlsx) {
+    const rel = path.relative(dataDir, full);
+    let parsed;
+    try { parsed = parseLinkedInRawXlsx(full); }
+    catch (e) { console.log(`  ${rel}  (skipped — could not be read: ${e.message})`); continue; }
+    const { rows, skippedReason, window: win, exact } = parsed;
+    if (skippedReason) {
+      console.log(`  ${rel}  (skipped — ${skippedReason})`);
+    } else {
+      console.log(`  ${rel}  (${rows.length} rows — raw LinkedIn export, ${rows[0] ? rows[0].Month : '?'}${exact ? '' : `, rolling window ${win} assigned by majority of days`})`);
+      compLiRows = compLiRows.concat(rows);
     }
-  } else {
-    console.log('\n── No LinkedIn snapshots in ./data/competitors_linkedin/ yet ──');
   }
+  for (const df of liCsv) {
+    console.log(`  ${df.rel}  (${df.rows.length} rows — pre-converted CSV)`);
+    compLiRows = compLiRows.concat(df.rows);
+  }
+} else {
+  console.log('\n── No LinkedIn competitor snapshots found ──');
 }
 
 if (compPerfRows.length > 0 || compLiRows.length > 0) {
