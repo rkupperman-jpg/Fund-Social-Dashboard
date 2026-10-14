@@ -159,6 +159,8 @@ footer p{margin-top:3px}
 </div>
 
 <div class="view" id="view-main">
+<!-- Data-check banner: filled from DASHBOARD_DATA.meta.dataWarnings (see build.js "Data checks") -->
+<div class="note" id="dataWarnBanner" style="display:none;border-left-color:#C0392B;background:#FBEAEA"></div>
 
 <!-- Controls -->
 <div class="panel controls">
@@ -203,7 +205,7 @@ footer p{margin-top:3px}
 <div id="cardArea"></div>
 
 <!-- Note -->
-<div class="note">&#9432; Facebook impressions in July&ndash;October 2024 were predominantly paid (98%+ of views). Use the <strong>Compare Platforms</strong> view to see Facebook and LinkedIn on one trendline &mdash; Facebook defaults to organic impressions there so the comparison stays like-for-like. For The Fund&rsquo;s own paid vs. organic detail, select <strong>Facebook</strong> platform and <strong>Impressions</strong> metric to use the Organic / Paid / Total toggle.</div>
+<div class="note">&#9432; Facebook impressions in July&ndash;October 2024 were predominantly paid (98%+ of views). Use the <strong>Compare Platforms</strong> view to see Facebook and LinkedIn on one trendline &mdash; Facebook defaults to organic impressions there so the comparison stays like-for-like. For The Fund&rsquo;s own paid vs. organic detail, select <strong>Facebook</strong> platform and <strong>Impressions</strong> metric to use the Organic / Paid / Total toggle. Organic is total impressions minus paid views from Sprout&rsquo;s Facebook Pages report.</div>
 
 <!-- Chart -->
 <div class="panel">
@@ -1823,6 +1825,21 @@ function updateAll() {
 }
 
 // ── INIT ───────────────────────────────────────────────────────────────────
+// Data-check banner: settled months that a newer Sprout export revised by >25%
+(function renderDataWarnings() {
+  const ws = window.DASHBOARD_DATA?.meta?.dataWarnings || [];
+  const el = document.getElementById('dataWarnBanner');
+  if (!el || !ws.length) return;
+  const MN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const lbl = { imp: 'impressions', eng: 'engagements' };
+  const items = ws.map(w => {
+    const [y, m] = w.month.split('-').map(Number);
+    const ratio = w.before > 0 ? ` (${(w.after / w.before).toFixed(1)}x)` : '';
+    return `${w.network} ${lbl[w.metric] || w.metric}, ${MN[m - 1]} ${y}: ${fmt(w.before, 'imp')} &rarr; ${fmt(w.after, 'imp')}${ratio}`;
+  });
+  el.innerHTML = `<strong>&#9888; Data check:</strong> the latest Sprout export changed ${ws.length === 1 ? 'a past month' : ws.length + ' past month figures'} by more than 25%. Past months normally move only a few percent, so verify before using these figures: ${items.join('; ')}. If the change is real, add the month to <code>data/corrections/accepted_changes.csv</code> to clear this notice.`;
+  el.style.display = '';
+})();
 const _note = document.getElementById('lastDateNote');
 if (_note && window.DASHBOARD_DATA?.meta?.lastDate) {
   _note.textContent = 'Data current through ' + window.DASHBOARD_DATA.meta.lastDate + '.';
